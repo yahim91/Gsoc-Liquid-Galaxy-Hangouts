@@ -13,3 +13,13 @@ section {
 	display:block;
 	border: 2px solid #777;
 }
+
+#startButton {
+	position:absolute;
+	width: 100px;
+	height: 22px;
+	top: 50%;
+	left: 50%;
+	margin-left: -50px;
+	display:block;
+}
