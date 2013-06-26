@@ -1,10 +1,10 @@
 ;(function() {
 	var localStream,
-	peerConnection,
+	localParticipant,
+	participants,
 	localVideo,
 	userid,
 	mainChannel,
-	localChannel,
 	initiator,
 	channelConfig,
 	config = {
@@ -21,6 +21,7 @@
 	};
 	
 	function initialize() {
+		participants = {};
 		localVideo = document.getElementById("localVideo");
 		channelConfig = {
 				url: 'https://liquid-galaxy.firebaseio.com/main',
@@ -75,83 +76,14 @@
 	}
 	
 	function handleNewParticipant(userid) {
-		var userChannelConfig = {
-				url : 'https://liquid-galaxy.firebaseio.com/' + userid,
-				onmessage : processSignalingMessage,
-				onopen : function() {}
-			};
-		var userChannel = new Channel(userChannelConfig);
-		if (!peerConnection) {
-			createPeerConnection();
-		}
+		participants[userid] = new Participant(userid);
+		participants[userid].call();
 	}
 
 	function joinRoom() {
-		// open own channel
-		localChannelConfig = {
-			url : 'https://liquid-galaxy.firebaseio.com/' + userid,
-			onmessage : processSignalingMessage,
-			onopen : function() {}
-		};
-		localChannel = new Firebase(localChannelConfig);
-		// send request
+		// create local participant
+		localParticipant = new Participant(userid);
 		mainChannel.send({'userid': userid, 'type': 'new_participant'});
-	}
-
-	function createPeerConnection() {
-		peerConnection = new RTCPeerConnection(config.peerConnectionConfig, config.peerConnectionConstraints);
-		if (localStream) {
-			peerConnection.addStream(localStream);
-		}
-		peerConnection.onicecandidate = onIceCandidate;
-		peerConnection.onaddstream = onRemoteStreamAdded;
-	}
-	
-	function onIceCandidate(event) {
-		if(event.candidate) {
-			
-		} else {
-			console.log("End of candidates");
-		}
-	}
-
-	function onRemoteStreamAdded(stream) {
-
-	}
-
-	function processSignalingMessage(msg) {
-		if (msg.type == 'offer') {
-			peerConnection.setRemoteDescription(new RTCSessionDescription(msg));
-			answer();
-			console.log("Set remote description.");
-		} else if (msg.type === 'answer') {
-			peerConnection.setRemoteDescription(new RTCSessionDescription(msg));
-		} else if (msg.type === 'candidate') {
-			var candidate = new RTCIceCandidate({
-				sdpMLineIndex : msg.label,
-				candidate : msg.candidate
-			});
-			peerConnection.addIceCandidate(candidate);
-		} else if (msg.type === 'bye' && started) {
-			onRemoteHangup();
-		}
-	}
-	
-	function answer() {
-		console.log("sending answer to peer");
-		peerConnection.createAnswer(setLocalAndSendMessage);
-	}
-	
-	function setLocalAndSendMessage(sessionDescription) {
-        sessionDescription.sdp = sessionDescription.sdp;
-        peerConnection.setLocalDescription(sessionDescription);
-        sendMessage(sessionDescription);
-	}
-
-	function sendMessage(message) {
-		var msgString = JSON.stringify(message);
-		console.log('C->S: ' + msgString);
-		socket.send(msgString);
 	}
 	
 	function Channel(channelConfig) {
@@ -167,5 +99,73 @@
 	Channel.prototype.send = function(message) {
 		this.channel.push(message);
 	}
+	
+	function Participant(userid) {
+		var self = this;
+		this.userid = userid;
+		this.peerConnection = new RTCPeerConnection(
+				config.peerConnectionConfig, config.peerConnectionConstraints);
+		this.peerConnection.onicecandidate = function(event) {
+			if (event.candidate) {
+				self.channel.send({
+					type : 'candidate',
+					label : event.candidate.sdpMLineIndex,
+					id : event.candidate.sdpMid,
+					candidate : event.candidate.candidate
+				});
+			} else {
+				console.log("End of candidates.");
+			}
+		};
+		this.peerConnection.onstream = this.onRemoteStreamAdded;
+		this.channel = new Channel({
+			url : 'https://liquid-galaxy.firebaseio.com/' + userid,
+			onmessage: function (msg) {
+				if (msg.type == 'offer') {
+					self.peerConnection.setRemoteDescription(new RTCSessionDescription(msg));
+					self.answer();
+					console.log("Set remote description.");
+				} else if (msg.type === 'answer') {
+					self.peerConnection.setRemoteDescription(new RTCSessionDescription(msg));
+				} else if (msg.type === 'candidate') {
+					var candidate = new RTCIceCandidate({
+						sdpMLineIndex : msg.label,
+						candidate : msg.candidate
+					});
+					self.peerConnection.addIceCandidate(candidate);
+				} else if (msg.type === 'bye' && started) {
+					//onRemoteHangup();
+				}
+			},
+			onopen: function () {}
+		});
+	}
+	
+	Participant.prototype.onRemoteStreamAdded = function (stream) {
+		//TODO
+	};
+
+	Participant.prototype.answer = function() {
+		var self = this;
+		console.log("Sending answer to peer");
+		this.peerConnection.createAnswer(function(sessionDescription) {
+			self.peerConnection.setLocalDescription(sessionDescription);
+			self.channel.send(sessionDescription);
+		});
+	};
+
+	Participant.prototype.call = function() {
+		var self = this;
+		console.log("Sending offer to peer");
+		this.peerConnection.createOffer(function(sessionDescription) {
+			self.peerConnection.setLocalDescription(sessionDescription);
+			self.channel.send(sessionDescription);
+		}, null, {
+			'mandatory' : {
+				'OfferToReceiveAudio' : true,
+				'OfferToReceiveVideo' : true
+			}
+		});
+	};
 	setTimeout(initialize, 1);
 }());
