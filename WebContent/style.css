@@ -1,0 +1,25 @@
+
+section {
+	display:block;
+	height:100%;
+}
+#localVideo {
+	position:absolute;
+	top:500px;
+	height: 150px;
+	width: 200px;
+	left: 50%;
+	margin-left:-100px;
+	display:block;
+	border: 2px solid #777;
+}
+
+#startButton {
+	position:absolute;
+	width: 100px;
+	height: 22px;
+	top: 50%;
+	left: 50%;
+	margin-left: -50px;
+	display:block;
+}
