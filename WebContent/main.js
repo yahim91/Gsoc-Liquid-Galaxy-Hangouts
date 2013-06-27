@@ -1,8 +1,8 @@
 ;(function() {
 	var localStream,
 	localParticipant,
+	selectedVideo,
 	participants,
-	localVideo,
 	userid,
 	mainChannel,
 	initiator,
@@ -22,7 +22,7 @@
 	
 	function initialize() {
 		participants = {};
-		localVideo = document.getElementById("localVideo");
+		selectedVideo = document.getElementById('selectedVideo');
 		channelConfig = {
 				url: 'https://liquid-galaxy.firebaseio.com/main',
 				onmessage: function (data) {
@@ -46,7 +46,6 @@
 				}
 		}
 		userid = createId();
-		getLocalUserMedia();
 		mainChannel = new Channel(channelConfig);
 	}
 	
@@ -55,10 +54,10 @@
 	}
 
 	// Get user media
-	function getLocalUserMedia() {
+	function getLocalUserMedia(callback) {
 		getUserMedia(config.media, function(stream) {
-			attachMediaStream(localVideo, stream);
 			localStream = stream;
+			callback();
 		}, function() {
 			throw new Error('Failed to get user media');
 		});
@@ -67,10 +66,34 @@
 	function enableStartButton() {
 		var startButton = document.getElementById("startButton");
 		startButton.disabled = false;
-		startButton.onclick = function () {
+		startButton.onclick = function() {
 			this.parentNode.removeChild(this);
 			mainChannel.channel.onDisconnect().remove();
-			mainChannel.send({'userid': userid, 'type': 'new_room'});
+			getLocalUserMedia(function() {
+				mainChannel.send({
+					'userid' : userid,
+					'type' : 'new_room'
+				});
+				
+				var mediaElement = document.createElement('video');
+				mediaElement.src = webkitURL.createObjectURL(localStream);
+				mediaElement.style.width = "200px";
+				mediaElement.style.height = "150px";
+				mediaElement.autoplay=true;
+				mediaElement.controls=true;
+				mediaElement.muted=true;
+				mediaElement.play();
+				mediaElement.onclick = function() {
+					selectedVideo.src = webkitURL.createObjectURL(localStream);
+					selectedVideo.autoplay=true;
+					selectedVideo.controls=true;
+					selectedVideo.muted = true;
+					selectedVideo.play();
+				};
+				var remoteMediaStreams = document.getElementById('remoteVideos');
+				remoteMediaStreams.appendChild(mediaElement);
+				
+			});
 			initiator = true;
 		};
 	}
@@ -82,8 +105,13 @@
 
 	function joinRoom() {
 		// create local participant
-		localParticipant = new Participant(userid);
-		mainChannel.send({'userid': userid, 'type': 'new_participant'});
+		getLocalUserMedia(function() {
+			localParticipant = new Participant(userid);
+			mainChannel.send({
+				'userid' : userid,
+				'type' : 'new_participant'
+			});
+		})
 	}
 	
 	function Channel(channelConfig) {
@@ -105,6 +133,9 @@
 		this.userid = userid;
 		this.peerConnection = new RTCPeerConnection(
 				config.peerConnectionConfig, config.peerConnectionConstraints);
+		if (localStream) {
+			this.peerConnection.addStream(localStream);
+		}
 		this.peerConnection.onicecandidate = function(event) {
 			if (event.candidate) {
 				self.channel.send({
@@ -117,7 +148,8 @@
 				console.log("End of candidates.");
 			}
 		};
-		this.peerConnection.onstream = this.onRemoteStreamAdded;
+		this.peerConnection.onaddstream = this.onRemoteStreamAdded;
+		this.peerConnection.onnegotationneeded = this.negotiationNeeded;
 		this.channel = new Channel({
 			url : 'https://liquid-galaxy.firebaseio.com/' + userid,
 			onmessage: function (msg) {
@@ -139,10 +171,28 @@
 			},
 			onopen: function () {}
 		});
+		this.channel.channel.onDisconnect().remove();
 	}
 	
-	Participant.prototype.onRemoteStreamAdded = function (stream) {
-		//TODO
+	Participant.prototype.onRemoteStreamAdded = function (event) {
+		console.log("remote stream added");
+		var mediaElement = document.createElement('video');
+		mediaElement.src = webkitURL.createObjectURL(event.stream);
+		mediaElement.style.width = "200px";
+		mediaElement.style.height = "150px";
+		mediaElement.autoplay=true;
+		mediaElement.controls=true;
+		mediaElement.play();
+		mediaElement.onclick = function() {
+			selectedVideo.src = webkitURL.createObjectURL(event.stream);
+			selectedVideo.autoplay=true;
+			selectedVideo.controls=true;
+			selectedVideo.muted=false;
+			selectedVideo.play();
+		};
+		var remoteMediaStreams = document.getElementById('remoteVideos');
+		remoteMediaStreams.appendChild(mediaElement);
+		mediaElement.onclick();
 	};
 
 	Participant.prototype.answer = function() {
