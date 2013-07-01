@@ -32,11 +32,12 @@
 					startButton.parentNode.removeChild(startButton);
 					initiator = false;
 					joinRoom();
-				}
-
-				if (data.type === 'new_participant' /* && initiator */) {
+				} else if (data.type === 'new_participant' /* && initiator */) {
 					handleNewParticipant(data.userid);
+				} else if (data.type === 'leave') {
+					removeParticipant(data);
 				}
+				
 			},
 			onopen : function() {
 				enableStartButton();
@@ -72,26 +73,7 @@
 					'userid' : userid,
 					'type' : 'new_room'
 				});
-
-				var mediaElement = document.createElement('video');
-				mediaElement.src = webkitURL.createObjectURL(localStream);
-				mediaElement.style.width = "200px";
-				mediaElement.style.height = "150px";
-				mediaElement.autoplay = true;
-				mediaElement.controls = true;
-				mediaElement.muted = true;
-				mediaElement.play();
-				mediaElement.onclick = function() {
-					selectedVideo.src = webkitURL.createObjectURL(localStream);
-					selectedVideo.autoplay = true;
-					selectedVideo.controls = true;
-					selectedVideo.muted = true;
-					selectedVideo.play();
-				};
-				var remoteMediaStreams = document
-						.getElementById('remoteVideos');
-				remoteMediaStreams.appendChild(mediaElement);
-
+				addVideoTag(localStream, {'muted': true, 'controls': false});
 			});
 			initiator = true;
 		};
@@ -114,6 +96,10 @@
 			}
 		}
 	}
+	
+	function removeParticipant() {
+		
+	}
 
 	function joinRoom() {
 		// create local participant
@@ -123,23 +109,7 @@
 				'userid' : userid,
 				'type' : 'new_participant'
 			});
-			var mediaElement = document.createElement('video');
-			mediaElement.src = webkitURL.createObjectURL(localStream);
-			mediaElement.style.width = "200px";
-			mediaElement.style.height = "150px";
-			mediaElement.autoplay = true;
-			mediaElement.controls = true;
-			mediaElement.muted = true;
-			mediaElement.play();
-			mediaElement.onclick = function() {
-				selectedVideo.src = webkitURL.createObjectURL(localStream);
-				selectedVideo.autoplay = true;
-				selectedVideo.controls = true;
-				selectedVideo.muted = true;
-				selectedVideo.play();
-			};
-			var remoteMediaStreams = document.getElementById('remoteVideos');
-			remoteMediaStreams.appendChild(mediaElement);
+			addVideoTag(localStream, {muted: true, controls: false});
 			for (user in participants) {
 				if (participants[user] === 'waitingMedia') {
 					participants[user] = new Participant(
@@ -220,23 +190,7 @@
 
 	Participant.prototype.onRemoteStreamAdded = function(event) {
 		console.log("remote stream added");
-		var mediaElement = document.createElement('video');
-		mediaElement.src = webkitURL.createObjectURL(event.stream);
-		mediaElement.style.width = "200px";
-		mediaElement.style.height = "150px";
-		mediaElement.autoplay = true;
-		mediaElement.controls = true;
-		mediaElement.play();
-		mediaElement.onclick = function() {
-			selectedVideo.src = webkitURL.createObjectURL(event.stream);
-			selectedVideo.autoplay = true;
-			selectedVideo.controls = true;
-			selectedVideo.muted = false;
-			selectedVideo.play();
-		};
-		var remoteMediaStreams = document.getElementById('remoteVideos');
-		remoteMediaStreams.appendChild(mediaElement);
-		mediaElement.onclick();
+		addVideoTag(event.stream, {'muted': false, controls: true});
 	};
 
 	Participant.prototype.answer = function() {
@@ -261,5 +215,27 @@
 			}
 		});
 	};
+	
+	function addVideoTag(stream, configuration) {
+		var mediaElement = document.createElement('video');
+		mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream : webkitURL.createObjectURL(stream);
+		mediaElement.style.width = "200px";
+		mediaElement.style.height = "150px";
+		mediaElement.autoplay = true;
+		mediaElement.controls = configuration.controls;
+		mediaElement.muted = configuration.muted;
+		mediaElement.play();
+		mediaElement.onclick = function() {
+			selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream : webkitURL.createObjectURL(stream);
+			selectedVideo.autoplay = true;
+			//selectedVideo.controls = true;
+			selectedVideo.muted = configuration.muted;
+			selectedVideo.play();
+		};
+		var remoteMediaStreams = document.getElementById('remoteVideos');
+		remoteMediaStreams.appendChild(mediaElement);
+		mediaElement.onclick();
+	}
+	
 	setTimeout(initialize, 1);
 }());
