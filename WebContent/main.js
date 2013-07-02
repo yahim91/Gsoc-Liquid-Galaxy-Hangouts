@@ -26,7 +26,7 @@
 	};
 
 	function initialize() {
-		participants = {'size': 0};
+		participants = {};
 		selectedVideo = document.getElementById('selectedVideo');
 		channelConfig = {
 			url : 'https://liquid-galaxy.firebaseio.com/main',
@@ -60,7 +60,7 @@
 							participants[user] = new Participant(
 									user < userid ? user + '+' + userid
 											: userid + '+' + user);
-							participants['size']++;
+							
 							if (user < userid) {
 								participants[user].call();
 							}
@@ -120,7 +120,6 @@
 				participants[remoteUserid] = new Participant(
 						remoteUserid < userid ? remoteUserid + '+' + userid
 								: userid + '+' + remoteUserid);
-				participants['size']++;
 				if (remoteUserid < userid) {
 					participants[remoteUserid].call();
 				}
@@ -233,7 +232,6 @@
 		var remoteVideo = document.getElementById(this.userid);
 		remoteVideo.parentNode.removeChild(remoteVideo);
 		this.peerConnection.close();
-		participants.size--;
 		if (selectedVideo.videoId === this.userid) {
 			selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? localStream : webkitURL.createObjectURL(localStream);
 			selectedVideo.videoId = userid;
