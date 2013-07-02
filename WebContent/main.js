@@ -1,6 +1,14 @@
 ;
 (function() {
-	var localStream, localParticipant, selectedVideo, participants, userid, mainChannel, initiator, channelConfig, config = {
+	var localStream,
+	localParticipant,
+	selectedVideo,
+	participants,
+	userid,
+	mainChannel,
+	initiator,
+	channelConfig,
+	newParticipantMessageRef, config = {
 		media : {
 			audio : true,
 			video : true
@@ -18,7 +26,7 @@
 	};
 
 	function initialize() {
-		participants = {};
+		participants = {'size': 0};
 		selectedVideo = document.getElementById('selectedVideo');
 		channelConfig = {
 			url : 'https://liquid-galaxy.firebaseio.com/main',
@@ -31,8 +39,7 @@
 					var startButton = document.getElementById("startButton");
 					startButton.parentNode.removeChild(startButton);
 					initiator = false;
-					joinRoom();
-				} else if (data.type === 'new_participant' /* && initiator */) {
+				} else if (data.type === 'new_participant') {
 					handleNewParticipant(data.userid);
 				} else if (data.type === 'leave') {
 					removeParticipant(data);
@@ -40,7 +47,35 @@
 				
 			},
 			onopen : function() {
-				enableStartButton();
+				getLocalUserMedia(function() {
+					mainChannel.send({
+						'userid' : userid,
+						'type' : 'new_participant'
+					});
+					
+					addVideoTag(localStream, {'muted': true, 'controls': false, 'id': userid});
+					
+					for (user in participants) {
+						if (participants[user] === 'waitingMedia') {
+							participants[user] = new Participant(
+									user < userid ? user + '+' + userid
+											: userid + '+' + user);
+							participants['size']++;
+							if (user < userid) {
+								participants[user].call();
+							}
+						}
+					}
+				});
+			},
+			onparticipantleft: function (data) {
+				if (data.userid === userid) {
+					return;
+				}
+				if (data.type === 'new_participant') {
+					participants[data.userid].close();
+					delete participants[data.userid];
+				}
 			}
 		}
 		userid = createId();
@@ -80,47 +115,19 @@
 	}
 
 	function handleNewParticipant(remoteUserid) {
-		if (initiator) {
-			participants[remoteUserid] = new Participant(remoteUserid);
-			participants[remoteUserid].call();
-		} else if (!participants[remoteUserid]) {
+		if (!participants[remoteUserid]) {
 			if (localStream) {
 				participants[remoteUserid] = new Participant(
 						remoteUserid < userid ? remoteUserid + '+' + userid
 								: userid + '+' + remoteUserid);
+				participants['size']++;
 				if (remoteUserid < userid) {
 					participants[remoteUserid].call();
 				}
 			} else {
-				participants[remoteUserid]='waitingMedia';
+				participants[remoteUserid] = 'waitingMedia';
 			}
 		}
-	}
-	
-	function removeParticipant() {
-		
-	}
-
-	function joinRoom() {
-		// create local participant
-		getLocalUserMedia(function() {
-			localParticipant = new Participant(userid);
-			mainChannel.send({
-				'userid' : userid,
-				'type' : 'new_participant'
-			});
-			addVideoTag(localStream, {muted: true, controls: false});
-			for (user in participants) {
-				if (participants[user] === 'waitingMedia') {
-					participants[user] = new Participant(
-							user < userid ? user + '+' + userid
-									: userid + '+' + user);
-					if (user < userid) {
-						participants[user].call();
-					}
-				}
-			}
-		});
 	}
 
 	function Channel(channelConfig) {
@@ -129,11 +136,20 @@
 		this.channel.on("child_added", function(event) {
 			channelConfig.onmessage(event.val());
 		});
+		this.channel.on("child_removed", function(event) {
+			if (event.val().type && event.val().type == 'new_participant') {
+				channelConfig.onparticipantleft(event.val());
+			}
+		});
 		console.log('Channel opened');
 	}
 
 	Channel.prototype.send = function(message) {
-		this.channel.push(message);
+		if (message.type === 'new_participant') {
+			newParticipantMessageRef = this.channel.push(message);
+		} else {
+			this.channel.push(message);
+		}
 	}
 
 	function Participant(userid) {
@@ -156,7 +172,11 @@
 				console.log("End of candidates.");
 			}
 		};
-		this.peerConnection.onaddstream = this.onRemoteStreamAdded;
+		this.peerConnection.onaddstream = function(event) {
+			console.log("remote stream added");
+			addVideoTag(event.stream, {'muted': false, 'controls': true, 'id': self.userid});
+		};
+		
 		this.peerConnection.onnegotationneeded = this.negotiationNeeded;
 		this.channel = new Channel(
 				{
@@ -178,8 +198,6 @@
 								candidate : msg.candidate
 							});
 							self.peerConnection.addIceCandidate(candidate);
-						} else if (msg.type === 'bye' && started) {
-							// onRemoteHangup();
 						}
 					},
 					onopen : function() {
@@ -187,11 +205,6 @@
 				});
 		this.channel.channel.onDisconnect().remove();
 	}
-
-	Participant.prototype.onRemoteStreamAdded = function(event) {
-		console.log("remote stream added");
-		addVideoTag(event.stream, {'muted': false, controls: true});
-	};
 
 	Participant.prototype.answer = function() {
 		var self = this;
@@ -216,9 +229,22 @@
 		});
 	};
 	
+	Participant.prototype.close = function () {
+		var remoteVideo = document.getElementById(this.userid);
+		remoteVideo.parentNode.removeChild(remoteVideo);
+		this.peerConnection.close();
+		participants.size--;
+		if (selectedVideo.videoId === this.userid) {
+			selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? localStream : webkitURL.createObjectURL(localStream);
+			selectedVideo.videoId = userid;
+			selectedVideo.muted = true;
+		}
+	}
+	
 	function addVideoTag(stream, configuration) {
 		var mediaElement = document.createElement('video');
 		mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream : webkitURL.createObjectURL(stream);
+		mediaElement.id = configuration.id;
 		mediaElement.style.width = "200px";
 		mediaElement.style.height = "150px";
 		mediaElement.autoplay = true;
@@ -227,6 +253,7 @@
 		mediaElement.play();
 		mediaElement.onclick = function() {
 			selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream : webkitURL.createObjectURL(stream);
+			selectedVideo.videoId = configuration.id;
 			selectedVideo.autoplay = true;
 			//selectedVideo.controls = true;
 			selectedVideo.muted = configuration.muted;
@@ -236,6 +263,8 @@
 		remoteMediaStreams.appendChild(mediaElement);
 		mediaElement.onclick();
 	}
-	
-	setTimeout(initialize, 1);
+	window.onload = initialize;
+	window.onbeforeunload = function () {
+		newParticipantMessageRef.remove();
+	};
 }());
