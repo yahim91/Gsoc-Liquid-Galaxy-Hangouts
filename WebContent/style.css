@@ -12,11 +12,11 @@ video {
 
 #selectedVideo {
 	position:absolute;
-	height:300px;
-	width:400px;
+	height:400px;
+	width:520px;
 	display:block;
 	left:50%;
-	margin-left: -200px;
+	margin-left: -260px;
 }
 #remoteVideos {
 	display:block;
