@@ -1,17 +1,74 @@
 ;
 (function() {
-	var localStream,
-	localParticipant,
+	var localVideoStream,
+	localScreenStream,
 	selectedVideo,
 	participants,
 	userid,
+	screenShareButton,
+	userInfo,
 	mainChannel,
 	initiator,
 	channelConfig,
-	newParticipantMessageRef, config = {
+	newParticipantMessageRef,
+	participantConfig = {
+		peerConnectionConfig: {
+			iceServers : [ {
+				"url" : "stun:stun.l.google.com:19302"
+			} ]
+		},
+		peerConnectionConstraints: {
+			optional : [ {
+				"DtlsSrtpKeyAgreement" : true
+			} ]
+		},
+		onaddstream: function(event, remoteuserid) {
+			var mediaElement = document.getElementById(remoteuserid);
+			if (mediaElement) {
+				mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? event.stream : webkitURL.createObjectURL(event.stream);
+				mediaElement.autoplay = true;
+				mediaElement.stream = event.stream;
+				mediaElement.play();
+			} else {
+				console.log("remote stream added");
+				addVideoTag(event.stream, {'muted': false, 'controls': true, 'id': remoteuserid});
+			}
+		}
+	},
+	config = {
 		media : {
 			audio : true,
 			video : true
+		},
+		stream: 'localVideoStream',
+		callback : function() {
+			newParticipantMessageRef = mainChannel.send({
+				'userid' : userid,
+				'type' : 'new_participant'
+			});
+
+			addVideoTag(localVideoStream, {
+				'muted' : true,
+				'controls' : false,
+				'id' : userid
+			});
+
+			for (user in participants) {
+				if (participants[user] === 'waitingMedia') {
+					participantConfig.userid = user < userid ? user
+							+ '+' + userid : userid + '+' + user;
+					participants[user] = new Participant(participantConfig);
+
+					if (user < userid) {
+						participants[user].call( {
+							'mandatory' : {
+								'OfferToReceiveAudio' : true,
+								'OfferToReceiveVideo' : true
+							}
+						});
+					}
+				}
+			}
 		},
 		peerConnectionConfig : {
 			iceServers : [ {
@@ -26,18 +83,73 @@
 	};
 
 	function initialize() {
-		participants = {'size': 0};
+		participants = {};
+		if (location.href.split('?').length > 1) {
+			userInfo = {
+				type : 'galaxy-rig',
+				galaxyId : getUrlParam('galaxyId'),
+				galaxyRole : getUrlParam('galaxyRole')
+			}
+		} else {
+			userInfo = {
+				type : 'regular'
+			};
+		}
+		console.log('User info: ' + JSON.stringify(userInfo));
 		selectedVideo = document.getElementById('selectedVideo');
+		screenShareButton = document.getElementById('screenShareButton');
+		screenShareButton.onclick = function () {
+			getLocalUserMedia({
+				media: {
+					video: {
+						mandatory: {
+							chromeMediaSource: 'screen'
+						}
+					}
+				},
+				callback: function() {
+					for (user in participants) {
+						if (participants[user] === 'waitingMedia') {
+							participantConfig.userid = user < userid ? user
+									+ '+' + userid : userid + '+' + user;
+							participants[user] = new Participant(participantConfig);
+
+							if (user < userid) {
+								participants[user].call( {
+									'mandatory' : {
+										'OfferToReceiveAudio' : true,
+										'OfferToReceiveVideo' : true
+									}
+								});
+							}
+						} else {
+							participants[user].removeStream(localVideoStream);
+							participants[user].addStream(localScreenStream);
+							localVideoStream.stop();
+							participants[user].call( {
+								'mandatory' : {
+									'OfferToReceiveAudio' : true,
+									'OfferToReceiveVideo' : true
+								}
+							});
+						}
+					}
+					var localVideo = document.getElementById(userid);
+					if (localVideo) {
+						localVideo.replaceStream(localVideoStream);
+					}
+				},
+				stream: 'localScreenStream'
+			});
+		};
 		channelConfig = {
-			url : 'https://liquid-galaxy.firebaseio.com/main',
+			url : 'https://liquid-galaxy.firebaseio.com/mymain',
 			onmessage : function(data) {
 				if (data.userid === userid) {
 					return;
 				}
 				console.log('S -> C:' + JSON.stringify(data));
 				if (data.type === 'new_room') {
-					var startButton = document.getElementById("startButton");
-					startButton.parentNode.removeChild(startButton);
 					initiator = false;
 				} else if (data.type === 'new_participant') {
 					handleNewParticipant(data.userid);
@@ -47,26 +159,7 @@
 				
 			},
 			onopen : function() {
-				getLocalUserMedia(function() {
-					mainChannel.send({
-						'userid' : userid,
-						'type' : 'new_participant'
-					});
-					
-					addVideoTag(localStream, {'muted': true, 'controls': false, 'id': userid});
-					
-					for (user in participants) {
-						if (participants[user] === 'waitingMedia') {
-							participants[user] = new Participant(
-									user < userid ? user + '+' + userid
-											: userid + '+' + user);
-							participants['size']++;
-							if (user < userid) {
-								participants[user].call();
-							}
-						}
-					}
-				});
+				getLocalUserMedia(config);
 			},
 			onparticipantleft: function (data) {
 				if (data.userid === userid) {
@@ -77,7 +170,7 @@
 					delete participants[data.userid];
 				}
 			}
-		}
+		};
 		userid = createId();
 		mainChannel = new Channel(channelConfig);
 	}
@@ -86,12 +179,28 @@
 		return (Math.random() * new Date().getTime()).toString().toUpperCase()
 				.replace('.', '-');
 	}
+	
+	function getUrlParam(key) {
+		var param_string = location.href.split('?')[1];
+		var parameters = param_string.split('&');
+		for (var i in parameters) {
+			res = parameters[i].split('=');
+			if (res[0] === key) {
+				return res[1];
+			}
+		}
+	}
 
 	// Get user media
-	function getLocalUserMedia(callback) {
-		getUserMedia(config.media, function(stream) {
-			localStream = stream;
-			callback();
+	function getLocalUserMedia(configuration) {
+		getUserMedia(configuration.media, function(stream) {
+			if (configuration.stream === 'localScreenStream') {
+				localScreenStream = stream;
+			} else {
+				localVideoStream = stream;
+			}
+			console.log('Stream id: ' + stream.id);
+			configuration.callback();
 		}, function() {
 			throw new Error('Failed to get user media');
 		});
@@ -108,7 +217,7 @@
 					'userid' : userid,
 					'type' : 'new_room'
 				});
-				addVideoTag(localStream, {'muted': true, 'controls': false});
+				addVideoTag(localVideoStream, {'muted': true, 'controls': false});
 			});
 			initiator = true;
 		};
@@ -116,135 +225,49 @@
 
 	function handleNewParticipant(remoteUserid) {
 		if (!participants[remoteUserid]) {
-			if (localStream) {
-				participants[remoteUserid] = new Participant(
-						remoteUserid < userid ? remoteUserid + '+' + userid
-								: userid + '+' + remoteUserid);
-				participants['size']++;
+			if (localVideoStream) {
+				participantConfig.localVideoStream = localVideoStream;
+				participantConfig.userid = remoteUserid < userid ? remoteUserid + '+' + userid
+						: userid + '+' + remoteUserid;
+				participants[remoteUserid] = new Participant(participantConfig);
 				if (remoteUserid < userid) {
-					participants[remoteUserid].call();
+					participants[remoteUserid].call( {
+						'mandatory' : {
+							'OfferToReceiveAudio' : true,
+							'OfferToReceiveVideo' : true
+						}
+					});
 				}
 			} else {
 				participants[remoteUserid] = 'waitingMedia';
 			}
 		}
 	}
-
-	function Channel(channelConfig) {
-		this.channel = new Firebase(channelConfig.url);
-		channelConfig.onopen();
-		this.channel.on("child_added", function(event) {
-			channelConfig.onmessage(event.val());
-		});
-		this.channel.on("child_removed", function(event) {
-			if (event.val().type && event.val().type == 'new_participant') {
-				channelConfig.onparticipantleft(event.val());
-			}
-		});
-		console.log('Channel opened');
-	}
-
-	Channel.prototype.send = function(message) {
-		if (message.type === 'new_participant') {
-			newParticipantMessageRef = this.channel.push(message);
-		} else {
-			this.channel.push(message);
-		}
-	}
-
-	function Participant(userid) {
-		var self = this;
-		this.userid = userid;
-		this.peerConnection = new RTCPeerConnection(
-				config.peerConnectionConfig, config.peerConnectionConstraints);
-		if (localStream) {
-			this.peerConnection.addStream(localStream);
-		}
-		this.peerConnection.onicecandidate = function(event) {
-			if (event.candidate) {
-				self.channel.send({
-					type : 'candidate',
-					label : event.candidate.sdpMLineIndex,
-					id : event.candidate.sdpMid,
-					candidate : event.candidate.candidate
-				});
-			} else {
-				console.log("End of candidates.");
-			}
-		};
-		this.peerConnection.onaddstream = function(event) {
-			console.log("remote stream added");
-			addVideoTag(event.stream, {'muted': false, 'controls': true, 'id': self.userid});
-		};
-		
-		this.peerConnection.onnegotationneeded = this.negotiationNeeded;
-		this.channel = new Channel(
-				{
-					url : 'https://liquid-galaxy.firebaseio.com/' + userid,
-					onmessage : function(msg) {
-						if (msg.type == 'offer') {
-							self.peerConnection
-									.setRemoteDescription(new RTCSessionDescription(
-											msg));
-							self.answer();
-							console.log("Set remote description.");
-						} else if (msg.type === 'answer') {
-							self.peerConnection
-									.setRemoteDescription(new RTCSessionDescription(
-											msg));
-						} else if (msg.type === 'candidate') {
-							var candidate = new RTCIceCandidate({
-								sdpMLineIndex : msg.label,
-								candidate : msg.candidate
-							});
-							self.peerConnection.addIceCandidate(candidate);
-						}
-					},
-					onopen : function() {
-					}
-				});
-		this.channel.channel.onDisconnect().remove();
-	}
-
-	Participant.prototype.answer = function() {
-		var self = this;
-		console.log("Sending answer to peer");
-		this.peerConnection.createAnswer(function(sessionDescription) {
-			self.peerConnection.setLocalDescription(sessionDescription);
-			self.channel.send(sessionDescription);
-		});
-	};
-
-	Participant.prototype.call = function() {
-		var self = this;
-		console.log("Sending offer to peer");
-		this.peerConnection.createOffer(function(sessionDescription) {
-			self.peerConnection.setLocalDescription(sessionDescription);
-			self.channel.send(sessionDescription);
-		}, null, {
-			'mandatory' : {
-				'OfferToReceiveAudio' : true,
-				'OfferToReceiveVideo' : true
-			}
-		});
+	
+	Participant.prototype.removeStream = function(stream) {
+		this.peerConnection.removeStream(stream);
 	};
 	
 	Participant.prototype.close = function () {
 		var remoteVideo = document.getElementById(this.userid);
 		remoteVideo.parentNode.removeChild(remoteVideo);
 		this.peerConnection.close();
-		participants.size--;
 		if (selectedVideo.videoId === this.userid) {
-			selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? localStream : webkitURL.createObjectURL(localStream);
+			selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? localVideoStream : webkitURL.createObjectURL(localVideoStream);
 			selectedVideo.videoId = userid;
 			selectedVideo.muted = true;
 		}
-	}
+	};
+	
+	Participant.prototype.addStream = function(stream) {
+		this.peerConnection.addStream(stream);
+	};
 	
 	function addVideoTag(stream, configuration) {
 		var mediaElement = document.createElement('video');
 		mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream : webkitURL.createObjectURL(stream);
 		mediaElement.id = configuration.id;
+		mediaElement.stream = stream;
 		mediaElement.style.width = "200px";
 		mediaElement.style.height = "150px";
 		mediaElement.autoplay = true;
@@ -252,13 +275,18 @@
 		mediaElement.muted = configuration.muted;
 		mediaElement.play();
 		mediaElement.onclick = function() {
-			selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream : webkitURL.createObjectURL(stream);
+			selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? mediaElement.stream
+					: webkitURL.createObjectURL(mediaElement.stream);
 			selectedVideo.videoId = configuration.id;
 			selectedVideo.autoplay = true;
 			//selectedVideo.controls = true;
 			selectedVideo.muted = configuration.muted;
 			selectedVideo.play();
 		};
+		mediaElement.replaceStream = function(stream) {
+			mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream : webkitURL.createObjectURL(stream);
+			mediaElement.stream = stream;
+		}
 		var remoteMediaStreams = document.getElementById('remoteVideos');
 		remoteMediaStreams.appendChild(mediaElement);
 		mediaElement.onclick();
