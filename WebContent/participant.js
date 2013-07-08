@@ -1,11 +1,16 @@
 function Participant(participantConfig) {
 	var self = this;
+	this.slaves = {};
+	this.participantConfig = participantConfig;
+	this.localUserId = participantConfig.localUserId;
 	this.userid = participantConfig.userid;
 	this.firstCall = true;
 	this.peerConnection = new RTCPeerConnection(
 			participantConfig.peerConnectionConfig,
 			participantConfig.peerConnectionConstraints);
-	this.peerConnection.addStream(participantConfig.localVideoStream);
+	if (participantConfig.stream) {
+		this.peerConnection.addStream(participantConfig.stream);
+	}
 	this.peerConnection.onnegotiationneeded = function(event) {
 		console.log('negotiation nedeed');
 		/*
@@ -18,12 +23,12 @@ function Participant(participantConfig) {
 	};
 	this.peerConnection.onicecandidate = function(event) {
 		if (event.candidate) {
-			self.channel.send({
+			self.channel.send({'userid': participantConfig.localUserId, 'data' :{
 				type : 'candidate',
 				label : event.candidate.sdpMLineIndex,
 				id : event.candidate.sdpMid,
 				candidate : event.candidate.candidate
-			});
+			}});
 		} else {
 			console.log("End of candidates.");
 		}
@@ -35,8 +40,42 @@ function Participant(participantConfig) {
 	this.channel = new Channel({
 		url : 'https://liquid-galaxy.firebaseio.com/'
 				+ participantConfig.userid,
-		onmessage : function(msg) {
-			if (msg.type == 'offer') {
+		onmessage : participantConfig.onmessage ? participantConfig.onmessage : function(msg) {
+			if (msg.userid === participantConfig.localUserId) {
+				return;
+			} else {
+				msg = msg.data;
+			}
+			if (msg.type == 'slaveId') {
+				self.slaves[msg.slaveId] = new Participant(
+						{
+							localUserId : self.localUserId,
+							userid : merge(self.localUserId, msg.slaveId),
+							peerConnectionConfig : {
+								iceServers : [ {
+									"url" : "stun:stun.l.google.com:19302"
+								} ]
+							},
+							peerConnectionConstraints : {
+								optional : [ {
+									"DtlsSrtpKeyAgreement" : true
+								} ]
+							},
+							onaddstream : function(event,
+									remoteuserid) {
+							},
+							mediaConfiguration : {
+								'mandatory' : {
+									'OfferToReceiveAudio' : true,
+									'OfferToReceiveVideo' : true
+								}
+							},
+							onopen: function (participant) {
+								participant.peerConnection.addStream(self.participantConfig.stream);
+								participant.call();
+							}
+						});
+			} else if (msg.type == 'offer') {
 				console.log('offer: ' + JSON.stringify(msg));
 				self.peerConnection
 						.setRemoteDescription(new RTCSessionDescription(msg));
@@ -57,15 +96,18 @@ function Participant(participantConfig) {
 		}
 	});
 	this.channel.channel.onDisconnect().remove();
+	if (participantConfig.onopen) {
+		participantConfig.onopen(this);
+	}
 }
 
-Participant.prototype.call = function(configuration) {
+Participant.prototype.call = function() {
 	var self = this;
 	console.log("Sending offer to peer");
 	this.peerConnection.createOffer(function(sessionDescription) {
 		self.peerConnection.setLocalDescription(sessionDescription);
-		self.channel.send(sessionDescription);
-	}, null, configuration);
+		self.channel.send({'userid': self.localUserId, 'data': sessionDescription});
+	}, null, this.participantConfig.mediaConfiguration);
 };
 
 Participant.prototype.answer = function() {
@@ -73,6 +115,6 @@ Participant.prototype.answer = function() {
 	console.log("Sending answer to peer");
 	this.peerConnection.createAnswer(function(sessionDescription) {
 		self.peerConnection.setLocalDescription(sessionDescription);
-		self.channel.send(sessionDescription);
+		self.channel.send({'userid': self.localUserId, 'data': sessionDescription});
 	});
 };

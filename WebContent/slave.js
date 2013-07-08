@@ -1,6 +1,6 @@
 ;
 (function() {
- 	userInfo,
+ 	var userInfo,
 	remoteParticipant;
 	function initialize() {
 		getUserInfo();
@@ -15,24 +15,26 @@
 				galaxyId : getUrlParam('galaxyId'),
 				galaxyRole : getUrlParam('galaxyRole'),
 				galaxyRemoteId : getUrlParam('remoteId'),
+				masterId: getUrlParam('masterId')
 			};
 		} else {
 			userInfo = {
 				type : 'regular'
 			};
 		}
+		console.log(JSON.stringify(userInfo));
 	}
 	
 	function merge(s1, s2) {
-		return remoteUserid < userid ? remoteUserid + '+' + userid : userid
-				+ '+' + remoteUserid;
+		return s1 < s2 ? s1 + '+' + s2 : s2 + '+' + s1;
 	}
 	
 	function getUrlParam(key) {
 		var param_string = location.href.split('?')[1];
 		var parameters = param_string.split('&');
-		for ( var i in parameters) {
+		for (var i in parameters) {
 			res = parameters[i].split('=');
+			console.log(res[0] + ' = ' + key);
 			if (res[0] === key) {
 				return res[1];
 			}
@@ -42,7 +44,8 @@
 	function handleRemoteParticipant(userid) {
 		remoteParticipant = new Participant(
 				{
-					userid : merge(userid, userInfo.id),
+					localUserId: userInfo.id,
+					userid: merge(userid, userInfo.id),
 					peerConnectionConfig : {
 						iceServers : [ {
 							"url" : "stun:stun.l.google.com:19302"
@@ -55,24 +58,23 @@
 					},
 					onaddstream : function(event, remoteuserid) {
 						var mediaElement = document
-								.getElementById(remoteuserid);
-						if (mediaElement) {
-							mediaElement[browser === 'firefox' ? 'mozSrcObject'
+								.getElementById('remoteSlaveVideo');
+						mediaElement[browser === 'firefox' ? 'mozSrcObject'
 									: 'src'] = browser === 'firefox' ? event.stream
 									: webkitURL.createObjectURL(event.stream);
-							mediaElement.autoplay = true;
-							mediaElement.stream = event.stream;
-							mediaElement.play();
-						} else {
-							console.log("remote stream added");
-							addVideoTag(event.stream, {
-								'muted' : false,
-								'controls' : true,
-								'id' : remoteuserid
-							});
+						mediaElement.autoplay = true;
+						mediaElement.stream = event.stream;
+						mediaElement.play();
+						console.log('remote stream added');
+					},
+					mediaConfiguration : {
+						'mandatory' : {
+							'OfferToReceiveAudio' : false,
+							'OfferToReceiveVideo' : false
 						}
 					}
 				});
 	}
+	window.onload = initialize;
 	
 }());

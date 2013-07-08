@@ -9,7 +9,7 @@ function Channel(channelConfig) {
 			channelConfig.onparticipantleft(event.val());
 		}
 	});
-	console.log('Channel opened');
+	console.log('Channel opened: ' + channelConfig.url);
 }
 
 Channel.prototype.send = function(message) {

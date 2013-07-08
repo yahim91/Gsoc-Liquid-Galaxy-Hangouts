@@ -12,39 +12,43 @@
 	channelConfig,
 	newParticipantMessageRef,
 	participantConfig = {
-		peerConnectionConfig: {
+		peerConnectionConfig : {
 			iceServers : [ {
 				"url" : "stun:stun.l.google.com:19302"
 			} ]
 		},
-		peerConnectionConstraints: {
+		peerConnectionConstraints : {
 			optional : [ {
 				"DtlsSrtpKeyAgreement" : true
 			} ]
 		},
-		onaddstream: function(event, remoteuserid) {
+		onaddstream : function(event, remoteuserid) {
 			var mediaElement = document.getElementById(remoteuserid);
 			if (mediaElement) {
-				mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? event.stream : webkitURL.createObjectURL(event.stream);
+				mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? event.stream
+						: webkitURL.createObjectURL(event.stream);
 				mediaElement.autoplay = true;
 				mediaElement.stream = event.stream;
 				mediaElement.play();
 			} else {
 				console.log("remote stream added");
-				addVideoTag(event.stream, {'muted': false, 'controls': true, 'id': remoteuserid});
+				addVideoTag(event.stream, {
+					'muted' : false,
+					'controls' : true,
+					'id' : remoteuserid
+				});
 			}
 		}
-	},
-	config = {
+	}, config = {
 		media : {
 			audio : true,
 			video : true
 		},
-		stream: 'localVideoStream',
-		callback : function() {
+		stream : 'localVideoStream',
+		callback : function(userInfo) {
 			newParticipantMessageRef = mainChannel.send({
 				'userid' : userid,
-				'type' : 'new_participant'
+				'type' : userInfo.type === 'regular' ? 'new_participant' : 'new_galaxy_rig'
 			});
 
 			addVideoTag(localVideoStream, {
@@ -55,17 +59,38 @@
 
 			for (user in participants) {
 				if (participants[user] === 'waitingMedia') {
-					participantConfig.userid = user < userid ? user
-							+ '+' + userid : userid + '+' + user;
+					participantConfig.localUserId = userid;
+					participantConfig.stream = localVideoStream;
+					participantConfig.userid = user < userid ? user + '+'
+							+ userid : userid + '+' + user;
+					participantConfig.mediaConfiguration = {
+						'mandatory' : {
+							'OfferToReceiveAudio' : true,
+							'OfferToReceiveVideo' : true
+						}
+					};
+					if (userInfo.type !== 'regular') {
+						var slaveId = createId();
+						participantConfig.onaddstream = function () {};
+						participantConfig.onopen = function (participant) {
+							participant.channel.send({'userid': userid, 'data':{'type': 'slaveId', 'slaveId': slaveId}});
+						}
+						// var slaveConfig = participantConfig;
+						// slaveConfig.userid = merge(slaveId, userid);
+						// slaves[slaveId] = new Participant(slaveConfig);
+						// slaves[slaveId].call();
+						var url = location.href.split('?')[0];
+						url = url.substring(0, url.lastIndexOf('/') + 1)
+								+ 'slave.html?';
+						url += 'slaveId=' + slaveId;
+						url += '&masterId=' + userid;
+						url += '&remoteId=' + user;
+						window.open(url, 'width=800px, height=600px').focus();
+					}
 					participants[user] = new Participant(participantConfig);
 
 					if (user < userid) {
-						participants[user].call( {
-							'mandatory' : {
-								'OfferToReceiveAudio' : true,
-								'OfferToReceiveVideo' : true
-							}
-						});
+						participants[user].call();
 					}
 				}
 			}
@@ -84,6 +109,7 @@
 
 	function initialize() {
 		participants = {};
+		slaves = {};
 		if (location.href.split('?').length > 1) {
 			userInfo = {
 				type : 'galaxy-rig',
@@ -98,40 +124,38 @@
 		console.log('User info: ' + JSON.stringify(userInfo));
 		selectedVideo = document.getElementById('selectedVideo');
 		screenShareButton = document.getElementById('screenShareButton');
-		screenShareButton.onclick = function () {
+		screenShareButton.onclick = function() {
 			getLocalUserMedia({
-				media: {
-					video: {
-						mandatory: {
-							chromeMediaSource: 'screen'
+				media : {
+					video : {
+						mandatory : {
+							chromeMediaSource : 'screen'
 						}
 					}
 				},
-				callback: function() {
+				callback : function() {
 					for (user in participants) {
 						if (participants[user] === 'waitingMedia') {
 							participantConfig.userid = user < userid ? user
 									+ '+' + userid : userid + '+' + user;
-							participants[user] = new Participant(participantConfig);
+							participantConfig.localUserid = userid;
+							participantConfig.mediaConfiguration = {
+								'mandatory' : {
+									'OfferToReceiveAudio' : true,
+									'OfferToReceiveVideo' : true
+								}
+							};
+							participants[user] = new Participant(
+									participantConfig);
 
 							if (user < userid) {
-								participants[user].call( {
-									'mandatory' : {
-										'OfferToReceiveAudio' : true,
-										'OfferToReceiveVideo' : true
-									}
-								});
+								participants[user].call();
 							}
 						} else {
 							participants[user].removeStream(localVideoStream);
 							participants[user].addStream(localScreenStream);
 							localVideoStream.stop();
-							participants[user].call( {
-								'mandatory' : {
-									'OfferToReceiveAudio' : true,
-									'OfferToReceiveVideo' : true
-								}
-							});
+							participants[user].call();
 						}
 					}
 					var localVideo = document.getElementById(userid);
@@ -139,11 +163,11 @@
 						localVideo.replaceStream(localVideoStream);
 					}
 				},
-				stream: 'localScreenStream'
+				stream : 'localScreenStream'
 			});
 		};
 		channelConfig = {
-			url : 'https://liquid-galaxy.firebaseio.com/mymain',
+			url : 'https://liquid-galaxy.firebaseio.com/main',
 			onmessage : function(data) {
 				if (data.userid === userid) {
 					return;
@@ -151,21 +175,21 @@
 				console.log('S -> C:' + JSON.stringify(data));
 				if (data.type === 'new_room') {
 					initiator = false;
-				} else if (data.type === 'new_participant') {
-					handleNewParticipant(data.userid);
+				} else if (data.type === 'new_participant' || data.type === 'new_galaxy_rig') {
+					handleNewParticipant(data);
 				} else if (data.type === 'leave') {
 					removeParticipant(data);
 				}
-				
+
 			},
 			onopen : function() {
 				getLocalUserMedia(config);
 			},
-			onparticipantleft: function (data) {
+			onparticipantleft : function(data) {
 				if (data.userid === userid) {
 					return;
 				}
-				if (data.type === 'new_participant') {
+				if (data.type === 'new_participant' || data.type === 'new_participant') {
 					participants[data.userid].close();
 					delete participants[data.userid];
 				}
@@ -179,11 +203,11 @@
 		return (Math.random() * new Date().getTime()).toString().toUpperCase()
 				.replace('.', '-');
 	}
-	
+
 	function getUrlParam(key) {
 		var param_string = location.href.split('?')[1];
 		var parameters = param_string.split('&');
-		for (var i in parameters) {
+		for ( var i in parameters) {
 			res = parameters[i].split('=');
 			if (res[0] === key) {
 				return res[1];
@@ -200,10 +224,13 @@
 				localVideoStream = stream;
 			}
 			console.log('Stream id: ' + stream.id);
-			configuration.callback();
+			configuration.callback(userInfo);
 		}, function() {
 			throw new Error('Failed to get user media');
 		});
+	}
+	function merge(s1, s2) {
+		return s1 < s2 ? s1 + '+' + s2 : s2 + '+' + s1;
 	}
 
 	function enableStartButton() {
@@ -217,55 +244,85 @@
 					'userid' : userid,
 					'type' : 'new_room'
 				});
-				addVideoTag(localVideoStream, {'muted': true, 'controls': false});
+				addVideoTag(localVideoStream, {
+					'muted' : true,
+					'controls' : false
+				});
 			});
 			initiator = true;
 		};
 	}
 
-	function handleNewParticipant(remoteUserid) {
+	function handleNewParticipant(remoteData) {
+		var remoteUserid = remoteData.userid;
+		var remoteType = remoteData.type;
 		if (!participants[remoteUserid]) {
 			if (localVideoStream) {
-				participantConfig.localVideoStream = localVideoStream;
-				participantConfig.userid = remoteUserid < userid ? remoteUserid + '+' + userid
-						: userid + '+' + remoteUserid;
+				participantConfig.stream = localVideoStream;
+				participantConfig.localUserId = userid;
+				participantConfig.userid = remoteUserid < userid ? remoteUserid
+						+ '+' + userid : userid + '+' + remoteUserid;
+				participantConfig.mediaConfiguration = {
+					'mandatory' : {
+						'OfferToReceiveAudio' : true,
+						'OfferToReceiveVideo' : true
+					}
+				};
+				if (userInfo.type !== 'regular') {
+					var slaveId = createId();
+					participantConfig.onaddstream = function () {};
+					participantConfig.onopen = function (participant) {
+						participant.channel.send({'userid': userid, 'data':{'type': 'slaveId', 'slaveId': slaveId}});
+					}
+					// var slaveConfig = participantConfig;
+					// slaveConfig.userid = merge(slaveId, userid);
+					// slaves[slaveId] = new Participant(slaveConfig);
+					// slaves[slaveId].call();
+					var url = location.href.split('?')[0];
+					url = url.substring(0, url.lastIndexOf('/') + 1)
+							+ 'slave.html?';
+					url += 'slaveId=' + slaveId;
+					url += '&masterId=' + userid;
+					url += '&remoteId=' + remoteUserid;
+					window.open(url, 'width=800px, height=600px').focus();
+				}
 				participants[remoteUserid] = new Participant(participantConfig);
 				if (remoteUserid < userid) {
-					participants[remoteUserid].call( {
-						'mandatory' : {
-							'OfferToReceiveAudio' : true,
-							'OfferToReceiveVideo' : true
-						}
-					});
+					participants[remoteUserid].call();
 				}
 			} else {
 				participants[remoteUserid] = 'waitingMedia';
 			}
 		}
 	}
-	
+
 	Participant.prototype.removeStream = function(stream) {
 		this.peerConnection.removeStream(stream);
 	};
-	
-	Participant.prototype.close = function () {
+
+	Participant.prototype.close = function() {
+		if (userInfo.type === 'galaxy-rig') {
+			return;
+		}
 		var remoteVideo = document.getElementById(this.userid);
 		remoteVideo.parentNode.removeChild(remoteVideo);
 		this.peerConnection.close();
 		if (selectedVideo.videoId === this.userid) {
-			selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? localVideoStream : webkitURL.createObjectURL(localVideoStream);
+			selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? localVideoStream
+					: webkitURL.createObjectURL(localVideoStream);
 			selectedVideo.videoId = userid;
 			selectedVideo.muted = true;
 		}
 	};
-	
+
 	Participant.prototype.addStream = function(stream) {
 		this.peerConnection.addStream(stream);
 	};
-	
+
 	function addVideoTag(stream, configuration) {
 		var mediaElement = document.createElement('video');
-		mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream : webkitURL.createObjectURL(stream);
+		mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream
+				: webkitURL.createObjectURL(stream);
 		mediaElement.id = configuration.id;
 		mediaElement.stream = stream;
 		mediaElement.style.width = "200px";
@@ -279,12 +336,13 @@
 					: webkitURL.createObjectURL(mediaElement.stream);
 			selectedVideo.videoId = configuration.id;
 			selectedVideo.autoplay = true;
-			//selectedVideo.controls = true;
+			// selectedVideo.controls = true;
 			selectedVideo.muted = configuration.muted;
 			selectedVideo.play();
 		};
 		mediaElement.replaceStream = function(stream) {
-			mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream : webkitURL.createObjectURL(stream);
+			mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream
+					: webkitURL.createObjectURL(stream);
 			mediaElement.stream = stream;
 		}
 		var remoteMediaStreams = document.getElementById('remoteVideos');
@@ -292,7 +350,7 @@
 		mediaElement.onclick();
 	}
 	window.onload = initialize;
-	window.onbeforeunload = function () {
+	window.onbeforeunload = function() {
 		newParticipantMessageRef.remove();
 	};
 }());
