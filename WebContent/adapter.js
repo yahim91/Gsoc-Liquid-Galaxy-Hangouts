@@ -1,7 +1,8 @@
 var RTCPeerConnection = null,
 getUserMedia = null,
 attachMediaStream = null,
-browser = null;
+browser = null,
+MediaStream = null;
 
 if (navigator.mozGetUserMedia) {
 	console.log("Firefox browser");
@@ -10,6 +11,7 @@ if (navigator.mozGetUserMedia) {
 	RTCSessionDescription = mozRTCSessionDescription;
 	RTCIceCandidate = mozRTCIceCandidate;
 	getUserMedia = navigator.mozGetUserMedia.bind(navigator);
+	MediaStream = window.MediaStream;
 
 	// Attach media stream to an element
 	attachMediaStream = function(element, stream) {
@@ -29,6 +31,7 @@ if (navigator.mozGetUserMedia) {
 	browser = "chrome";
 	RTCPeerConnection = webkitRTCPeerConnection;
 	getUserMedia = navigator.webkitGetUserMedia.bind(navigator);
+	MediaStream = window.webkitMediaStream;
 
 	// Attach media stream to an element
 	attachMediaStream = function(element, stream) {
@@ -58,4 +61,8 @@ if (navigator.mozGetUserMedia) {
 	}
 } else {
 	console.log("Browser does not support webrtc");
+}
+
+function merge(s1, s2) {
+	return s1 < s2 ? s1 + '+' + s2 : s2 + '+' + s1;
 }
