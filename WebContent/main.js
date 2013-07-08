@@ -189,7 +189,7 @@
 				if (data.userid === userid) {
 					return;
 				}
-				if (data.type === 'new_participant' || data.type === 'new_participant') {
+				if (data.type === 'new_participant' || data.type === 'new_galaxy_rig') {
 					participants[data.userid].close();
 					delete participants[data.userid];
 				}
@@ -324,9 +324,10 @@
 		mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream
 				: webkitURL.createObjectURL(stream);
 		mediaElement.id = configuration.id;
+		mediaElement.className = "tile-video";
 		mediaElement.stream = stream;
-		mediaElement.style.width = "200px";
-		mediaElement.style.height = "150px";
+		/*mediaElement.style.width = "200px";
+		mediaElement.style.height = "150px";*/
 		mediaElement.autoplay = true;
 		mediaElement.controls = configuration.controls;
 		mediaElement.muted = configuration.muted;
