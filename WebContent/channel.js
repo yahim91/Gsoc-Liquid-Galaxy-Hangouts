@@ -5,7 +5,7 @@ function Channel(channelConfig) {
 		channelConfig.onmessage(event.val());
 	});
 	this.channel.on("child_removed", function(event) {
-		if (event.val().type && event.val().type == 'new_participant') {
+		if (event.val().type && (event.val().type == 'new_participant' || event.val().type === 'new_galaxy_rig')) {
 			channelConfig.onparticipantleft(event.val());
 		}
 	});
