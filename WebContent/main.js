@@ -205,6 +205,7 @@
 			}
 		};
 		userid = createId();
+		console.log("User Id is : " + userid);
 		ownChannel = new Channel({
 			url: 'https://liquid-galaxy.firebaseio.com/' + userid,
 			onmessage: function (data) {
