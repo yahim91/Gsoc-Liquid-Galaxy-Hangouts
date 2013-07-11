@@ -12,12 +12,21 @@
 	<script src="adapter.js"></script>
 	<script src="channel.js"></script>
 	<script src="participant.js"></script>
-	<script src="main.js"></script>
+	<script src="main.js" type="text/javascript"></script>
 	<section id="galaxy-app">
 		<section id="selectedVideoSection">
 			<button id="screenShareButton" disabled>Share Screen</button>
 			<video id="selectedVideo"></video>
 		</section>
+		<div class="left-sidebar">
+			<div class="menu">
+				<div>
+					<input id="input_slave_1" class="slave-input" type="text"
+						placeholder="Add a slave!">
+				</div>
+				<div id="start-button">Start</div>
+			</div>
+		</div>
 		<div id=remoteVideos class="right-sidebar">
 			<!--<button id="startButton" disabled>Start hangout!</button> -->
 			<!--<video id="localVideo" muted></video>-->

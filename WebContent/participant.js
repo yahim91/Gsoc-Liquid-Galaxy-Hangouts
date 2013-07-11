@@ -46,7 +46,7 @@ function Participant(participantConfig) {
 			} else {
 				msg = msg.data;
 			}
-			if (msg.type == 'slaveId') {
+			if (msg.type === 'slaveId') {
 				self.slaves[msg.slaveId] = new Participant(
 						{
 							localUserId : self.localUserId,

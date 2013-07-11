@@ -8,7 +8,11 @@
 	screenShareButton,
 	userInfo,
 	mainChannel,
+	isReady,
 	initiator,
+	slaves,
+	ownChannel,
+	slaveNum,
 	channelConfig,
 	newParticipantMessageRef,
 	participantConfig = {
@@ -48,9 +52,9 @@
 		callback : function(userInfo) {
 			newParticipantMessageRef = mainChannel.send({
 				'userid' : userid,
-				'type' : userInfo.type === 'regular' ? 'new_participant' : 'new_galaxy_rig'
+				'type' : 'new_participant'
 			});
-
+			isReady = true;
 			addVideoTag(localVideoStream, {
 				'muted' : true,
 				'controls' : false,
@@ -69,7 +73,7 @@
 							'OfferToReceiveVideo' : true
 						}
 					};
-					if (userInfo.type !== 'regular') {
+					/*if (userInfo.type !== 'regular') {
 						var slaveId = createId();
 						participantConfig.onaddstream = function () {};
 						participantConfig.onopen = function (participant) {
@@ -86,7 +90,7 @@
 						url += '&masterId=' + userid;
 						url += '&remoteId=' + user;
 						window.open(url, 'width=800px, height=600px').focus();
-					}
+					}*/
 					participants[user] = new Participant(participantConfig);
 
 					if (user < userid) {
@@ -108,9 +112,14 @@
 	};
 
 	function initialize() {
+		slaveNum = 0;
 		participants = {};
 		slaves = {};
-		if (location.href.split('?').length > 1) {
+		userInfo = {};
+		isReady = false;
+		document.getElementById('start-button').onclick = start;
+		document.getElementById('input_slave_1').addEventListener('keydown', addSlave, false);
+		/*if (location.href.split('?').length > 1) {
 			userInfo = {
 				type : 'galaxy-rig',
 				galaxyId : getUrlParam('galaxyId'),
@@ -120,7 +129,7 @@
 			userInfo = {
 				type : 'regular'
 			};
-		}
+		}*/
 		console.log('User info: ' + JSON.stringify(userInfo));
 		selectedVideo = document.getElementById('selectedVideo');
 		screenShareButton = document.getElementById('screenShareButton');
@@ -182,10 +191,10 @@
 				}
 
 			},
-			onopen : function() {
+			onopen : function(channel) {
 				getLocalUserMedia(config);
 			},
-			onparticipantleft : function(data) {
+			onmessageremoved : function(data) {
 				if (data.userid === userid) {
 					return;
 				}
@@ -196,7 +205,26 @@
 			}
 		};
 		userid = createId();
-		mainChannel = new Channel(channelConfig);
+		ownChannel = new Channel({
+			url: 'https://liquid-galaxy.firebaseio.com/' + userid,
+			onmessage: function (data) {
+				if (data.userid === userid) {
+					return;
+				}
+				if (data.type === 'master_request') {
+					/*userInfo.type = 'galaxy-rig';
+					userInfo.galaxyRole = 'slave';
+					userInfo.masterId = data.userid;*/
+					console.log('master request');
+					var url = location.href;
+					url = url.substring(0, url.lastIndexOf('/') + 1)
+							+ 'slave.html';
+					url += '?slaveId=' + userid;
+					window.location.replace(url);
+				}
+			} 
+		});
+		ownChannel.channel.onDisconnect().remove();
 	}
 
 	function createId() {
@@ -268,7 +296,7 @@
 						'OfferToReceiveVideo' : true
 					}
 				};
-				if (userInfo.type !== 'regular') {
+				/*if (userInfo.type !== 'regular') {
 					var slaveId = createId();
 					participantConfig.onaddstream = function () {};
 					participantConfig.onopen = function (participant) {
@@ -285,10 +313,18 @@
 					url += '&masterId=' + userid;
 					url += '&remoteId=' + remoteUserid;
 					window.open(url, 'width=800px, height=600px').focus();
-				}
+				}*/
 				participants[remoteUserid] = new Participant(participantConfig);
 				if (remoteUserid < userid) {
 					participants[remoteUserid].call();
+				}
+				for (slave in slaves) {
+					if (slaves[slave].remoteConnection === false) {
+						slaves[slave].channel.send({'type': 'new_participant', 'userid': remoteUserid});
+						slaves[slave].remoteConnection = true;
+						participants[remoteUserid].channel.send({'userid': userid, 'data':{'type': 'slaveId', 'slaveId': slave}});
+						break;
+					}
 				}
 			} else {
 				participants[remoteUserid] = 'waitingMedia';
@@ -326,8 +362,6 @@
 		mediaElement.id = configuration.id;
 		mediaElement.className = "tile-video";
 		mediaElement.stream = stream;
-		/*mediaElement.style.width = "200px";
-		mediaElement.style.height = "150px";*/
 		mediaElement.autoplay = true;
 		mediaElement.controls = configuration.controls;
 		mediaElement.muted = configuration.muted;
@@ -337,7 +371,6 @@
 					: webkitURL.createObjectURL(mediaElement.stream);
 			selectedVideo.videoId = configuration.id;
 			selectedVideo.autoplay = true;
-			// selectedVideo.controls = true;
 			selectedVideo.muted = configuration.muted;
 			selectedVideo.play();
 		};
@@ -354,4 +387,38 @@
 	window.onbeforeunload = function() {
 		newParticipantMessageRef.remove();
 	};
+	
+	function addSlave(event) {
+		if (event.keyCode != 13) {
+			return;
+		}
+		if (slaveNum == 5) {
+			return;
+		}
+		slaveNum++;
+		console.log('slave added' + event.srcElement.value);
+		slaves[event.srcElement.value] = {'remoteConnection': false};
+		slaves[event.srcElement.value].channel = new Channel({
+			url: 'https://liquid-galaxy.firebaseio.com/' + event.srcElement.value,
+			onmessage: function (data) {
+				if (data.userid === userid) {
+					return;
+				}
+			},
+			onopen: function (channel) {
+				channel.send({'type' : 'master_request', 'userid': userid});
+			}
+		});
+		var input = document.createElement("input");
+		input.type = 'text';
+		input.className = 'slave-input';
+		input.addEventListener("keydown", addSlave, false);
+		input.placeholder = 'Add a slave!';
+		event.srcElement.parentNode.appendChild(input);
+		input.focus();
+	}
+	
+	function start() {
+		mainChannel = new Channel(channelConfig);
+	}
 }());

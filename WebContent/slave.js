@@ -1,10 +1,22 @@
 ;
 (function() {
  	var userInfo,
-	remoteParticipant;
+	remoteParticipant,
+	ownChannel;
 	function initialize() {
 		getUserInfo();
-		handleRemoteParticipant(userInfo.galaxyRemoteId);
+		ownChannel = new Channel({
+			url: 'https://liquid-galaxy.firebaseio.com/' + userInfo.id,
+			onmessage: function (data) {
+				if (data.userid === userInfo.id) {
+					return;
+				}
+				if (data.type === 'new_participant') {
+					handleRemoteParticipant(data.userid);
+				}
+			}
+		});
+		//handleRemoteParticipant(userInfo.galaxyRemoteId);
 	}
 	
 	function getUserInfo() {
