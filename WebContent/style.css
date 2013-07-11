@@ -41,6 +41,31 @@
 	display: block;
 }
 
+.menu {
+	position: relative;
+	width: 160px;
+	height: 390px;
+	margin-top: 25px;
+	margin-left: 25px;
+	background-color: #ededed;
+}
+
+.left-sidebar {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 190px;
+	height: 100%;
+	background-color: white;
+}
+
+.slave-input {
+	font-family: Helvetica, Arial, sans-serif;
+	width: 138px;
+	border: 1px solid #ccc;
+	display: block;
+}
+
 .tile-video {
 	position: relative;
 	width: 150px;
@@ -49,4 +74,15 @@
 	display: block;
 	left: 50%;
 	margin-left: -75px;
+}
+
+#start-button {
+	position: absolute;
+	height: 30px;
+	bottom: 0;
+	vertical-align: middle;
+	padding-left: 50px;
+	font-family: "proxima-nova",sans-serif;
+	cursor:pointer;
+	color: #222;
 }
