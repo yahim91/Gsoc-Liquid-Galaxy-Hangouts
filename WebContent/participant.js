@@ -72,7 +72,7 @@ function Participant(participantConfig) {
 							},
 							onopen: function (participant) {
 								participant.peerConnection.addStream(self.participantConfig.stream);
-								participant.channel.onDisconnect().remove();
+								//participant.channel.channel.onDisconnect().remove();
 								participant.call();
 							}
 						});
