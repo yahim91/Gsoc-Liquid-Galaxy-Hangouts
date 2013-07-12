@@ -101,7 +101,7 @@
 						if (slaves[slave].remoteConnection === false) {
 							slaves[slave].channel.send({'type': 'new_participant', 'userid': user});
 							slaves[slave].remoteConnection = true;
-							participants[remoteUserid].channel.send({'userid': userid, 'data':{'type': 'slaveId', 'slaveId': slave}});
+							participants[user].channel.send({'userid': userid, 'data':{'type': 'slaveId', 'slaveId': slave}});
 							break;
 						}
 					}
