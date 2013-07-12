@@ -1,33 +1,43 @@
 ;
 (function() {
- 	var userInfo,
-	remoteParticipant,
-	ownChannel;
+	var userInfo, remoteParticipant, ownChannel;
 	function initialize() {
 		getUserInfo();
 		ownChannel = new Channel({
-			url: 'https://liquid-galaxy.firebaseio.com/' + userInfo.id,
-			onmessage: function (data) {
+			url : 'https://liquid-galaxy.firebaseio.com/' + userInfo.id,
+			onmessage : function(data) {
 				if (data.userid === userInfo.id) {
 					return;
 				}
 				if (data.type === 'new_participant') {
+					console.log('new participant');
 					handleRemoteParticipant(data.userid);
 				}
+			},
+			onmessageremoved : function(data) {
+				if (data.userid === userInfo.id) {
+					return;
+				}
+				console.log('participant left');
+				var mediaElement = document.getElementById('remoteSlaveVideo');
+				mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = "";
+				mediaElement.pause();
+				document.getElementById('emptyMessage').hidden = false;
 			}
 		});
-		//handleRemoteParticipant(userInfo.galaxyRemoteId);
+		ownChannel.channel.onDisconnect().remove();
+		// handleRemoteParticipant(userInfo.galaxyRemoteId);
 	}
-	
+
 	function getUserInfo() {
 		if (location.href.split('?').length > 1) {
 			userInfo = {
-				id: getUrlParam('slaveId'),
+				id : getUrlParam('slaveId'),
 				type : 'galaxy-rig',
 				galaxyId : getUrlParam('galaxyId'),
 				galaxyRole : getUrlParam('galaxyRole'),
 				galaxyRemoteId : getUrlParam('remoteId'),
-				masterId: getUrlParam('masterId')
+				masterId : getUrlParam('masterId')
 			};
 		} else {
 			userInfo = {
@@ -36,15 +46,15 @@
 		}
 		console.log(JSON.stringify(userInfo));
 	}
-	
+
 	function merge(s1, s2) {
 		return s1 < s2 ? s1 + '+' + s2 : s2 + '+' + s1;
 	}
-	
+
 	function getUrlParam(key) {
 		var param_string = location.href.split('?')[1];
 		var parameters = param_string.split('&');
-		for (var i in parameters) {
+		for ( var i in parameters) {
 			res = parameters[i].split('=');
 			console.log(res[0] + ' = ' + key);
 			if (res[0] === key) {
@@ -56,8 +66,8 @@
 	function handleRemoteParticipant(userid) {
 		remoteParticipant = new Participant(
 				{
-					localUserId: userInfo.id,
-					userid: merge(userid, userInfo.id),
+					localUserId : userInfo.id,
+					userid : merge(userid, userInfo.id),
 					peerConnectionConfig : {
 						iceServers : [ {
 							"url" : "stun:stun.l.google.com:19302"
@@ -72,11 +82,12 @@
 						var mediaElement = document
 								.getElementById('remoteSlaveVideo');
 						mediaElement[browser === 'firefox' ? 'mozSrcObject'
-									: 'src'] = browser === 'firefox' ? event.stream
-									: webkitURL.createObjectURL(event.stream);
+								: 'src'] = browser === 'firefox' ? event.stream
+								: webkitURL.createObjectURL(event.stream);
 						mediaElement.autoplay = true;
 						mediaElement.stream = event.stream;
 						mediaElement.play();
+						document.getElementById('emptyMessage').hidden = true;
 						console.log('remote stream added');
 					},
 					mediaConfiguration : {
@@ -88,5 +99,12 @@
 				});
 	}
 	window.onload = initialize;
-	
+	window.onbeforeunload = function() {
+		ownChannel.send({
+			'type' : 'slave_leave',
+			'userid' : userInfo.id
+		});
+		remoteParticipant.peerConnection.close();
+	};
+
 }());

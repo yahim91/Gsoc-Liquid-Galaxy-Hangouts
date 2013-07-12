@@ -96,6 +96,15 @@
 					if (user < userid) {
 						participants[user].call();
 					}
+					
+					for (slave in slaves) {
+						if (slaves[slave].remoteConnection === false) {
+							slaves[slave].channel.send({'type': 'new_participant', 'userid': user});
+							slaves[slave].remoteConnection = true;
+							participants[remoteUserid].channel.send({'userid': userid, 'data':{'type': 'slaveId', 'slaveId': slave}});
+							break;
+						}
+					}
 				}
 			}
 		},
@@ -321,9 +330,10 @@
 				}
 				for (slave in slaves) {
 					if (slaves[slave].remoteConnection === false) {
-						slaves[slave].channel.send({'type': 'new_participant', 'userid': remoteUserid});
+						slaves[slave].messageRef = slaves[slave].channel.send({'type': 'new_participant', 'userid': remoteUserid});
 						slaves[slave].remoteConnection = true;
 						participants[remoteUserid].channel.send({'userid': userid, 'data':{'type': 'slaveId', 'slaveId': slave}});
+						participants[remoteUserid].displaySlave = slaves[slave];
 						break;
 					}
 				}
@@ -344,6 +354,9 @@
 		var remoteVideo = document.getElementById(this.userid);
 		remoteVideo.parentNode.removeChild(remoteVideo);
 		this.peerConnection.close();
+		if (this.displaySlave) {
+			this.displaySlave.removeParticipant();
+		}
 		if (selectedVideo.videoId === this.userid) {
 			selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? localVideoStream
 					: webkitURL.createObjectURL(localVideoStream);
@@ -399,16 +412,24 @@
 		slaveNum++;
 		console.log('slave added' + event.srcElement.value);
 		slaves[event.srcElement.value] = {'remoteConnection': false};
+		slaves[event.srcElement.value].idCase = event.srcElement;
+		slaves[event.srcElement.value].removeParticipant = function() {
+			this.messageRef.remove();
+		};
 		slaves[event.srcElement.value].channel = new Channel({
 			url: 'https://liquid-galaxy.firebaseio.com/' + event.srcElement.value,
 			onmessage: function (data) {
 				if (data.userid === userid) {
 					return;
 				}
+				if (data.type === 'slave_leave') {
+					slaves[data.userid].idCase.parentNode.removeChild(slaves[data.userid].idCase);
+					delete slaves[data.userid];
+				}
 			},
 			onopen: function (channel) {
 				channel.send({'type' : 'master_request', 'userid': userid});
-			}
+			},
 		});
 		var input = document.createElement("input");
 		input.type = 'text';
