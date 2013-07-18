@@ -370,6 +370,14 @@
 	};
 
 	function addVideoTag(stream, configuration) {
+        var container = document.createElement('figure');
+        container.className = 'video-tile-figure';
+        var caption = document.createElement('figcaption');
+        caption.className = 'video-tile-caption';
+        var muteButton = document.createElement('div');
+        muteButton.innerHTML='Mute';
+        muteButton.className='mute';
+        caption.appendChild(muteButton);
 		var mediaElement = document.createElement('video');
 		mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream
 				: webkitURL.createObjectURL(stream);
@@ -393,8 +401,10 @@
 					: webkitURL.createObjectURL(stream);
 			mediaElement.stream = stream;
 		}
+        container.appendChild(mediaElement);
+        container.appendChild(caption);
 		var remoteMediaStreams = document.getElementById('remoteVideos');
-		remoteMediaStreams.appendChild(mediaElement);
+		remoteMediaStreams.appendChild(container);
 		mediaElement.onclick();
 	}
 	window.onload = initialize;
