@@ -66,6 +66,26 @@
 	display: block;
 }
 
+.remote-grid {
+    margin: 0 auto;
+    width: 100%;
+    height:100%;
+    list-style: none;
+    overflow-y: scroll;
+}
+ 
+.remote-grid li {
+    display: inline-block;
+    width: 100px;
+    margin-top: 10;
+    position: relative;
+}
+
+.remote-grid figure {
+    margin: 0;
+    position: relative;
+}
+
 .tile-video {
 	position: relative;
 	width: 100%;
@@ -74,6 +94,7 @@
 	display: block;
 	left: 50%;
 	margin-left: -75px;
+    z-index: 10;
 }
 
 #start-button {
@@ -93,11 +114,28 @@
     display: block;
 }
 .video-tile-caption {
-    position: relative;
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    opacity: 0;
+    top: 0;
+    left:0;
+    backface-visibility: hidden;
+    background: #2c3f52;
+    box-shadow: 0 0 0 0px #2c3f52;
+    transition: opacity 0.3s, height 0.3s, box-shadow 0.3s;
+    color: #ed4e6e;
+    
+}
+
+.video-tile-figure:hover figcaption {
+    opacity: 1;
+    height: 110%;
+    box-shadow: 0 0 0 10px #2c3f52;
 }
 
 .video-tile-caption .mute {
-    position: absolute;
     cursor: pointer;
     left: 0px;
+    margin-top: 80%;
 }

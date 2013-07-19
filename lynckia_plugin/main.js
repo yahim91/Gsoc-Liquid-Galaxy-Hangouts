@@ -219,8 +219,8 @@
     
     function removeVideoTag(stream) {
         var streamId = stream.getAttributes().userid;
-        var remoteVideo = document.getElementById(streamId);
-		remoteVideo.parentNode.parentNode.removeChild(remoteVideo.parentNode);
+        var toBeRemoved = document.getElementById(streamId);
+		toBeRemoved.parentNode.removeChild(toBeRemoved);
 		if (selectedVideo.videoId === streamId) {
 			selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? localStream.stream
 					: webkitURL.createObjectURL(localStream.stream);
@@ -241,7 +241,6 @@
 		var mediaElement = document.createElement('video');
 		mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream
 				: webkitURL.createObjectURL(stream);
-		mediaElement.id = configuration.id;
 		mediaElement.className = "tile-video";
 		mediaElement.stream = stream;
 		mediaElement.autoplay = true;
@@ -261,10 +260,20 @@
 					: webkitURL.createObjectURL(stream);
 			mediaElement.stream = stream;
 		}
+        muteButton.onclick = function () {
+            if (mediaElement.muted === false) {
+                mediaElement.muted = true;
+            } else {
+                mediaElement.muted = false;
+            }
+        }
         container.appendChild(mediaElement);
         container.appendChild(caption);
-		var remoteMediaStreams = document.getElementById('remoteVideos');
-		remoteMediaStreams.appendChild(container);
+		var remoteMediaStreams = document.getElementById('remote-videos');
+        var li = document.createElement('li');
+        li.id = configuration.id;
+        li.appendChild(container);
+		remoteMediaStreams.appendChild(li);
 		mediaElement.onclick();
 	}
 	window.onload = initialize;
