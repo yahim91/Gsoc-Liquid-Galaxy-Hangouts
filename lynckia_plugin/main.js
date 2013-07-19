@@ -234,8 +234,12 @@
         container.className = 'video-tile-figure';
         var caption = document.createElement('figcaption');
         caption.className = 'video-tile-caption';
-        var muteButton = document.createElement('div');
-        muteButton.innerHTML='Mute';
+        var muteButton = document.createElement('img');
+        if (configuration.muted === true) {
+            muteButton.src = '/assets/muted.png';
+        } else {
+            muteButton.src = '/assets/unmuted.png';
+        }
         muteButton.className='mute';
         caption.appendChild(muteButton);
 		var mediaElement = document.createElement('video');
@@ -263,8 +267,10 @@
         muteButton.onclick = function () {
             if (mediaElement.muted === false) {
                 mediaElement.muted = true;
+                muteButton.src = '/assets/muted.png';
             } else {
                 mediaElement.muted = false;
+                muteButton.src = '/assets/unmuted.png';
             }
         }
         container.appendChild(mediaElement);
@@ -287,26 +293,10 @@
 		}
 		slaveNum++;
 		console.log('slave added' + event.srcElement.value);
-		slaves[event.srcElement.value] = {'remoteConnection': false};
 		slaves[event.srcElement.value].idCase = event.srcElement;
 		slaves[event.srcElement.value].removeParticipant = function() {
-			this.messageRef.remove();
 		};
-		slaves[event.srcElement.value].channel = new Channel({
-			url: 'https://liquid-galaxy.firebaseio.com/' + event.srcElement.value,
-			onmessage: function (data) {
-				if (data.userid === userid) {
-					return;
-				}
-				if (data.type === 'slave_leave') {
-					slaves[data.userid].idCase.parentNode.removeChild(slaves[data.userid].idCase);
-					delete slaves[data.userid];
-				}
-			},
-			onopen: function (channel) {
-				channel.send({'type' : 'master_request', 'userid': userid});
-			},
-		});
+		
 		var input = document.createElement("input");
 		input.type = 'text';
 		input.className = 'slave-input';

@@ -70,14 +70,12 @@
     margin: 0 auto;
     width: 100%;
     height:100%;
-    list-style: none;
     overflow-y: scroll;
 }
  
 .remote-grid li {
-    display: inline-block;
-    width: 100px;
-    margin-top: 10;
+    display: block;
+    margin: 0;
     position: relative;
 }
 
@@ -88,12 +86,8 @@
 
 .tile-video {
 	position: relative;
-	width: 100%;
-	height: 100%;
-	padding-top: 3px;
+    max-width:150px;
 	display: block;
-	left: 50%;
-	margin-left: -75px;
     z-index: 10;
 }
 
@@ -109,33 +103,28 @@
 }
 
 .video-tile-figure {
-    width: 150px;
-	height: 123px;
+    max-width: 150px;
     display: block;
 }
 .video-tile-caption {
     position: absolute;
-    height: 100%;
+    height:100%;
     width: 100%;
-    opacity: 0;
     top: 0;
-    left:0;
-    backface-visibility: hidden;
-    background: #2c3f52;
-    box-shadow: 0 0 0 0px #2c3f52;
-    transition: opacity 0.3s, height 0.3s, box-shadow 0.3s;
-    color: #ed4e6e;
+    right: 0;
+    background: #6C6F72;
+    -webkit-transition: width 0.5s, box-shadow 0.4s;
     
 }
 
+
+
 .video-tile-figure:hover figcaption {
-    opacity: 1;
-    height: 110%;
-    box-shadow: 0 0 0 10px #2c3f52;
+    width: 120%;
 }
 
 .video-tile-caption .mute {
     cursor: pointer;
     left: 0px;
-    margin-top: 80%;
+    margin-top: 5%;
 }
