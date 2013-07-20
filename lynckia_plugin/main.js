@@ -1,128 +1,21 @@
 ;
 (function() {
-	var localVideoStream,
-	localScreenStream,
-	selectedVideo,
+	var selectedVideo,
 	participants,
 	userid,
 	screenShareButton,
+    screenShared,
+    screenStream,
     localStream,
 	userInfo,
     room,
-	mainChannel,
-	isReady,
-	initiator,
 	slaves,
-	ownChannel,
-	slaveNum,
-	channelConfig,
-	newParticipantMessageRef,
-	participantConfig = {
-		peerConnectionConfig : {
-			iceServers : [ {
-				"url" : "stun:stun.l.google.com:19302"
-			} ]
-		},
-		peerConnectionConstraints : {
-			optional : [ {
-				"DtlsSrtpKeyAgreement" : true
-			} ]
-		},
-		onaddstream : function(event, remoteuserid) {
-			var mediaElement = document.getElementById(remoteuserid);
-			if (mediaElement) {
-				mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? event.stream
-						: webkitURL.createObjectURL(event.stream);
-				mediaElement.autoplay = true;
-				mediaElement.stream = event.stream;
-				mediaElement.play();
-			} else {
-				console.log("remote stream added");
-				addVideoTag(event.stream, {
-					'muted' : false,
-					'controls' : true,
-					'id' : remoteuserid
-				});
-			}
-		}
-	}, config = {
-		media : {
-			audio : true,
-			video : true
-		},
-		stream : 'localVideoStream',
-		callback : function(userInfo) {
-			newParticipantMessageRef = mainChannel.send({
-				'userid' : userid,
-				'type' : 'new_participant'
-			});
-			isReady = true;
-			addVideoTag(localStream.stream, {
-				'muted' : true,
-				'controls' : false,
-				'id' : userid
-			});
-
-			for (user in participants) {
-				if (participants[user] === 'waitingMedia') {
-					participantConfig.localUserId = userid;
-					participantConfig.stream = localVideoStream;
-					participantConfig.userid = user < userid ? user + '+'
-							+ userid : userid + '+' + user;
-					participantConfig.mediaConfiguration = {
-						'mandatory' : {
-							'OfferToReceiveAudio' : true,
-							'OfferToReceiveVideo' : true
-						}
-					};
-					/*if (userInfo.type !== 'regular') {
-						var slaveId = createId();
-						participantConfig.onaddstream = function () {};
-						participantConfig.onopen = function (participant) {
-							participant.channel.send({'userid': userid, 'data':{'type': 'slaveId', 'slaveId': slaveId}});
-						}
-						// var slaveConfig = participantConfig;
-						// slaveConfig.userid = merge(slaveId, userid);
-						// slaves[slaveId] = new Participant(slaveConfig);
-						// slaves[slaveId].call();
-						var url = location.href.split('?')[0];
-						url = url.substring(0, url.lastIndexOf('/') + 1)
-								+ 'slave.html?';
-						url += 'slaveId=' + slaveId;
-						url += '&masterId=' + userid;
-						url += '&remoteId=' + user;
-						window.open(url, 'width=800px, height=600px').focus();
-					}*/
-					participants[user] = new Participant(participantConfig);
-
-					if (user < userid) {
-						participants[user].call();
-					}
-					
-					for (slave in slaves) {
-						if (slaves[slave].remoteConnection === false) {
-							slaves[slave].channel.send({'type': 'new_participant', 'userid': user});
-							slaves[slave].remoteConnection = true;
-							participants[user].channel.send({'userid': userid, 'data':{'type': 'slaveId', 'slaveId': slave}});
-							break;
-						}
-					}
-				}
-			}
-		},
-		peerConnectionConfig : {
-			iceServers : [ {
-				"url" : "stun:stun.l.google.com:19302"
-			} ]
-		},
-		peerConnectionConstraints : {
-			optional : [ {
-				"DtlsSrtpKeyAgreement" : true
-			} ]
-		}
-	};
+	slaveNum;
+	
 
 	function initialize() {
+        screenShared = false;
+        participants = {};
         userid = createId();
         getLocalUserMedia();
 		
@@ -131,48 +24,25 @@
 		
 		console.log('User info: ' + JSON.stringify(userInfo));
 		selectedVideo = document.getElementById('selectedVideo');
-		screenShareButton = document.getElementById('screenShareButton');
+		screenShareButton = document.getElementById('share-screen-button');
 		screenShareButton.onclick = function() {
-			getLocalUserMedia({
-				media : {
-					video : {
-						mandatory : {
-							chromeMediaSource : 'screen'
-						}
-					}
-				},
-				callback : function() {
-					for (user in participants) {
-						if (participants[user] === 'waitingMedia') {
-							participantConfig.userid = user < userid ? user
-									+ '+' + userid : userid + '+' + user;
-							participantConfig.localUserid = userid;
-							participantConfig.mediaConfiguration = {
-								'mandatory' : {
-									'OfferToReceiveAudio' : true,
-									'OfferToReceiveVideo' : true
-								}
-							};
-							participants[user] = new Participant(
-									participantConfig);
-
-							if (user < userid) {
-								participants[user].call();
-							}
-						} else {
-							participants[user].removeStream(localVideoStream);
-							participants[user].addStream(localScreenStream);
-							localVideoStream.stop();
-							participants[user].call();
-						}
-					}
-					var localVideo = document.getElementById(userid);
-					if (localVideo) {
-						localVideo.replaceStream(localVideoStream);
-					}
-				},
-				stream : 'localScreenStream'
-			});
+			screenStream = Erizo.Stream({screen: true, video: true, data: true, attributes: {userid:userid, type: 'screen'}});
+            screenStream.init();
+            screenStream.addEventListener('access-accepted', function(event) {
+                replaceVideo(screenStream);
+                screenStream.stream.onended = function() {
+                    replaceVideo(localStream);
+                    room.unpublish(screenStream);
+                }
+                screenShared = true;
+                if (room && room.state == 2) {
+                    room.publish(screenStream);
+                }
+            
+            });
+            screenStream.addEventListener('access-denied', function(event) {
+                console.log('denied');
+            });
 		};
 		
 		console.log("User Id is : " + userid);
@@ -196,13 +66,12 @@
 
 	// Get user media
 	function getLocalUserMedia() {
-        localStream = Erizo.Stream({audio:true, video: true, data: true, attributes: {userid:userid}});
+        localStream = Erizo.Stream({audio:true, video: true, data: true, attributes: {userid:userid, type: 'video'}});
         localStream.init();
         localStream.addEventListener('access-accepted', function(event) {
-            addVideoTag(localStream.stream, {
+            addVideoTag({
 				'muted' : true,
-				'controls' : false,
-				'id' : userid
+				'participant' : {userid: userid, streams: [localStream]}
 			});
             
         });
@@ -214,8 +83,23 @@
 	function enableStartButton() {
 		
 	}
+    
+    function replaceVideo(stream) {
+        var userId = stream.getAttributes().userid;
+        var toBeReplaced = document.getElementById(userId);
+        toBeReplaced.children[0].children[0].replaceStream(stream.stream);
+    }
 
-	
+	function addStreamToVideo(stream) {
+        var streamId = stream.getAttributes().userid;
+        var container = document.getElementById(streamId);
+        var screenIcon = document.createElement('div');
+        screenIcon.className = 'screen-icon';
+        screenIcon.innerHTML = 'S';
+        screenIcon.onclick = function() {
+        }
+        container.children[0].children[1].appendChild(screenIcon);
+    }
     
     function removeVideoTag(stream) {
         var streamId = stream.getAttributes().userid;
@@ -228,8 +112,14 @@
 			selectedVideo.muted = true;
 		}
     }
+    
+    function removeStreamFromVideo(stream) {
+        var container = document.getElementById(stream.getAttributes().userid);
+        var screen_icon = container.children[0].children[1].getElementsByClassName('screen-icon');
+        container.children[0].children[1].removeChild(screen_icon[0]);
+    }
 
-	function addVideoTag(stream, configuration) {
+	function addVideoTag(configuration) {
         var container = document.createElement('figure');
         container.className = 'video-tile-figure';
         var caption = document.createElement('figcaption');
@@ -242,19 +132,20 @@
         }
         muteButton.className='mute';
         caption.appendChild(muteButton);
+        var stream = configuration.participant.streams[0].stream;
 		var mediaElement = document.createElement('video');
 		mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream
 				: webkitURL.createObjectURL(stream);
 		mediaElement.className = "tile-video";
 		mediaElement.stream = stream;
 		mediaElement.autoplay = true;
-		mediaElement.controls = configuration.controls;
+		mediaElement.controls = false;
 		mediaElement.muted = configuration.muted;
 		mediaElement.play();
 		mediaElement.onclick = function() {
 			selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? mediaElement.stream
 					: webkitURL.createObjectURL(mediaElement.stream);
-			selectedVideo.videoId = configuration.id;
+			selectedVideo.videoId = configuration.participant.userid;
 			selectedVideo.autoplay = true;
 			selectedVideo.muted = configuration.muted;
 			selectedVideo.play();
@@ -263,6 +154,10 @@
 			mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream
 					: webkitURL.createObjectURL(stream);
 			mediaElement.stream = stream;
+            if (selectedVideo.videoId === configuration.participant.userid) {
+                selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream
+					: webkitURL.createObjectURL(stream);
+            }
 		}
         muteButton.onclick = function () {
             if (mediaElement.muted === false) {
@@ -277,7 +172,7 @@
         container.appendChild(caption);
 		var remoteMediaStreams = document.getElementById('remote-videos');
         var li = document.createElement('li');
-        li.id = configuration.id;
+        li.id = configuration.participant.userid;
         li.appendChild(container);
 		remoteMediaStreams.appendChild(li);
 		mediaElement.onclick();
@@ -336,32 +231,92 @@
             room = Erizo.Room({'token': token});
             room.addEventListener('room-connected', function(roomEvent) {
                 console.log('room-connected');
+                if (screenShared) {
+                    setTimeout(function(){room.publish(screenStream)}, 3000);
+                }
                 room.publish(localStream);
                 subscribeToStreams(roomEvent.streams);
             });
             
             room.addEventListener('stream-added', function (roomEvent) {
-                if (localStream.getID() === roomEvent.stream.getID()) {
+                if (userid === roomEvent.stream.getAttributes().userid) {
                     console.log('local stream published id: '+ localStream.getID());
                     return;
                 } else {
                     room.subscribe(roomEvent.stream);
+                    console.log('subscribe');
                 }
             });
             
             room.addEventListener('stream-removed', function(roomEvent){
-                removeVideoTag(roomEvent.stream);
+                if (roomEvent.stream.getAttributes().userid === userid) {
+                    return;
+                }
+                var remoteUserId = roomEvent.stream.getAttributes().userid;
+                participants[remoteUserId].removeStream(roomEvent.stream);
+                if (!participants[remoteUserId].hasStreams()) {
+                    delete participants[remoteUserId];
+                }
             });
             
             room.addEventListener('stream-subscribed', function(roomEvent) {
-                streams.push(roomEvent.stream);
-                addVideoTag(roomEvent.stream.stream, {
-                    'muted' : false,
-				    'controls' : false,
-				    'id' : roomEvent.stream.getAttributes().userid
-                });
+                var remoteUserId = roomEvent.stream.getAttributes().userid;
+                if (participants[remoteUserId] === undefined) {
+                    participants[remoteUserId] = new Participant({
+                        userid: remoteUserId,
+                        stream: roomEvent.stream
+                    });
+                    participants[remoteUserId].show();
+                } else {
+                    participants[remoteUserId].addStream(roomEvent.stream);
+                }
+                console.log('stream subscribed ' + roomEvent.stream.getAttributes().type);
             });
             room.connect();
         });
 	}
+    
+    function Participant(participantConfig) {
+        this.streams = [];
+        this.visible = false;
+    	this.userid = participantConfig.userid;
+        if (participantConfig.stream) {
+            this.streams.push(participantConfig.stream);
+        }
+    };
+
+    Participant.prototype.show = function () {
+        addVideoTag({
+            'muted' : false,
+            'participant' : this
+        });
+        this.visible = true;
+    };
+    
+    Participant.prototype.addStream = function(stream) {
+        this.streams.push(stream);
+        if (this.visible) {
+            addStreamToVideo(stream);
+        } else {
+            this.show();
+        }
+    };
+    
+    Participant.prototype.removeStream = function (toBeRemoved) {
+        if (this.streams.length === 1) {
+            removeVideoTag(toBeRemoved);
+            return;
+        }
+        for (var i in this.streams) {
+            if (toBeRemoved.getID() === this.streams[i].getID()) {
+                this.streams.splice(i,1);
+                removeStreamFromVideo(toBeRemoved);
+                break;
+            }
+        }
+    };
+    
+    Participant.prototype.hasStreams = function() {
+        return this.streams.length > 0;
+    };
 }());

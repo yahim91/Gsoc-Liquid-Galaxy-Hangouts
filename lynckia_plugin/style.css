@@ -66,6 +66,18 @@
 	display: block;
 }
 
+.buttons {
+    display: block;
+    height:50%;
+    width:100%;
+}
+
+.buttons div {
+    text-align: center;
+	font-family: "proxima-nova",sans-serif;
+    cursor:pointer;
+}
+
 .remote-grid {
     margin: 0 auto;
     width: 100%;
@@ -77,6 +89,7 @@
     display: block;
     margin: 0;
     position: relative;
+    
 }
 
 .remote-grid figure {
@@ -92,14 +105,17 @@
 }
 
 #start-button {
-	position: absolute;
 	height: 30px;
-	bottom: 0;
-	vertical-align: middle;
-	padding-left: 50px;
-	font-family: "proxima-nova",sans-serif;
-	cursor:pointer;
 	color: #222;
+}
+
+.slaves {
+    height: 50%;
+}
+
+#share-screen-button {
+    cursor:pointer;
+    vertical-align: middle;
 }
 
 .video-tile-figure {
@@ -114,7 +130,6 @@
     right: 0;
     background: #6C6F72;
     -webkit-transition: width 0.5s, box-shadow 0.4s;
-    
 }
 
 
@@ -123,8 +138,19 @@
     width: 120%;
 }
 
-.video-tile-caption .mute {
+.video-tile-caption img {
     cursor: pointer;
     left: 0px;
+}
+
+.mute {
     margin-top: 5%;
+}
+
+.screen-icon {
+    color: rgb(231, 211, 211);
+    cursor: pointer;
+    left: 0px;
+    width: 32px;
+    text-align: center;
 }
