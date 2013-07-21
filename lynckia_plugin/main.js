@@ -29,10 +29,14 @@
 			screenStream = Erizo.Stream({screen: true, video: true, data: true, attributes: {userid:userid, type: 'screen'}});
             screenStream.init();
             screenStream.addEventListener('access-accepted', function(event) {
-                replaceVideo(screenStream);
+                participants[userid].addStream(screenStream);
+                participants[userid].switchVideos();
                 screenStream.stream.onended = function() {
-                    replaceVideo(localStream);
-                    room.unpublish(screenStream);
+                    if (room) {
+                        room.unpublish(screenStream);
+                    }
+                    participants[userid].removeStream(screenStream);
+                    
                 }
                 screenShared = true;
                 if (room && room.state == 2) {
@@ -69,19 +73,15 @@
         localStream = Erizo.Stream({audio:true, video: true, data: true, attributes: {userid:userid, type: 'video'}});
         localStream.init();
         localStream.addEventListener('access-accepted', function(event) {
-            addVideoTag({
-				'muted' : true,
-				'participant' : {userid: userid, streams: [localStream]}
-			});
-            
+            if (!participants[userid]) {
+                participants[userid] = new Participant ({userid: userid, stream: localStream});
+                participants[userid].show({muted: true});
+            }
+             console.log("Video stream id is " + JSON.stringify(localStream.getAttributes()));
         });
 		localStream.addEventListener('access-denied', function(event) {
             
         });
-	}
-    
-	function enableStartButton() {
-		
 	}
     
     function replaceVideo(stream) {
@@ -97,6 +97,12 @@
         screenIcon.className = 'screen-icon';
         screenIcon.innerHTML = 'S';
         screenIcon.onclick = function() {
+            if (container.participant.streams.length < 2) {
+                return;
+            }
+            container.currStream = 1 - container.currStream;
+            var nextStream = container.participant.streams[container.currStream];
+            container.children[0].children[0].replaceStream(nextStream.stream);
         }
         container.children[0].children[1].appendChild(screenIcon);
     }
@@ -115,8 +121,11 @@
     
     function removeStreamFromVideo(stream) {
         var container = document.getElementById(stream.getAttributes().userid);
+        var streamLeft = container.participant.streams[0];
         var screen_icon = container.children[0].children[1].getElementsByClassName('screen-icon');
         container.children[0].children[1].removeChild(screen_icon[0]);
+        container.children[0].children[0].replaceStream(streamLeft.stream);
+        
     }
 
 	function addVideoTag(configuration) {
@@ -150,13 +159,13 @@
 			selectedVideo.muted = configuration.muted;
 			selectedVideo.play();
 		};
-		mediaElement.replaceStream = function(stream) {
-			mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream
-					: webkitURL.createObjectURL(stream);
-			mediaElement.stream = stream;
+		mediaElement.replaceStream = function(_stream) {
+			mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? _stream
+					: webkitURL.createObjectURL(_stream);
+			mediaElement.stream = _stream;
             if (selectedVideo.videoId === configuration.participant.userid) {
-                selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream
-					: webkitURL.createObjectURL(stream);
+                selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? _stream
+					: webkitURL.createObjectURL(_stream);
             }
 		}
         muteButton.onclick = function () {
@@ -173,7 +182,9 @@
 		var remoteMediaStreams = document.getElementById('remote-videos');
         var li = document.createElement('li');
         li.id = configuration.participant.userid;
+        li.participant = configuration.participant;
         li.appendChild(container);
+        li.currStream = 0;
 		remoteMediaStreams.appendChild(li);
 		mediaElement.onclick();
 	}
@@ -240,7 +251,6 @@
             
             room.addEventListener('stream-added', function (roomEvent) {
                 if (userid === roomEvent.stream.getAttributes().userid) {
-                    console.log('local stream published id: '+ localStream.getID());
                     return;
                 } else {
                     room.subscribe(roomEvent.stream);
@@ -266,7 +276,7 @@
                         userid: remoteUserId,
                         stream: roomEvent.stream
                     });
-                    participants[remoteUserId].show();
+                    participants[remoteUserId].show({muted: false});
                 } else {
                     participants[remoteUserId].addStream(roomEvent.stream);
                 }
@@ -285,9 +295,9 @@
         }
     };
 
-    Participant.prototype.show = function () {
+    Participant.prototype.show = function (conf) {
         addVideoTag({
-            'muted' : false,
+            'muted' : conf.muted,
             'participant' : this
         });
         this.visible = true;
@@ -305,10 +315,11 @@
     Participant.prototype.removeStream = function (toBeRemoved) {
         if (this.streams.length === 1) {
             removeVideoTag(toBeRemoved);
+            this.streams = [];
             return;
         }
         for (var i in this.streams) {
-            if (toBeRemoved.getID() === this.streams[i].getID()) {
+            if (toBeRemoved === this.streams[i]) {
                 this.streams.splice(i,1);
                 removeStreamFromVideo(toBeRemoved);
                 break;
@@ -319,4 +330,9 @@
     Participant.prototype.hasStreams = function() {
         return this.streams.length > 0;
     };
+    
+    Participant.prototype.switchVideos = function() {
+        var container = document.getElementById(this.userid);
+        container.children[0].children[1].children[1].onclick();
+    }
 }());
