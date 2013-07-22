@@ -281,12 +281,20 @@
                     participants[remoteUserId].addStream(roomEvent.stream);
                 }
                 console.log('stream subscribed ' + roomEvent.stream.getAttributes().type);
+                roomEvent.stream.addEventListener('stream-data', function(event){
+                    console.log('data');
+                });
+                setTimeout(function() {
+                    localStream.sendData('ce faci')
+                },
+                5000);
             });
             room.connect();
         });
 	}
     
     function Participant(participantConfig) {
+        var self = this;
         this.streams = [];
         this.visible = false;
     	this.userid = participantConfig.userid;
@@ -334,5 +342,9 @@
     Participant.prototype.switchVideos = function() {
         var container = document.getElementById(this.userid);
         container.children[0].children[1].children[1].onclick();
+    };
+    
+    Participant.prototype.sendMessage = function (data) {
+        this.stream[0].sendData(data);
     }
 }());
