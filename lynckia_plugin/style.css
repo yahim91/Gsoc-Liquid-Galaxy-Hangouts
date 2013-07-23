@@ -59,16 +59,10 @@
 	background-color: white;
 }
 
-.slave-input {
-	font-family: Helvetica, Arial, sans-serif;
-	width: 138px;
-	border: 1px solid #ccc;
-	display: block;
-}
-
 .buttons {
+    position: absolute;
     display: block;
-    height:50%;
+    height:60%;
     width:100%;
 }
 
@@ -76,6 +70,12 @@
     text-align: center;
 	font-family: "proxima-nova",sans-serif;
     cursor:pointer;
+    height: 30px;
+}
+
+#select-master {
+    position:absolute;
+    width:100%;
 }
 
 .remote-grid {
@@ -102,20 +102,6 @@
     max-width:150px;
 	display: block;
     z-index: 10;
-}
-
-#start-button {
-	height: 30px;
-	color: #222;
-}
-
-.slaves {
-    height: 50%;
-}
-
-#share-screen-button {
-    cursor:pointer;
-    vertical-align: middle;
 }
 
 .video-tile-figure {

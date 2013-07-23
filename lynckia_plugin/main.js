@@ -10,6 +10,7 @@
 	userInfo,
     room,
 	slaves,
+    attachToLG,
 	slaveNum;
 	
 
@@ -20,7 +21,26 @@
         getLocalUserMedia();
 		
 		document.getElementById('start-button').onclick = start;
-		document.getElementById('input_slave_1').addEventListener('keydown', addSlave, false);
+        document.getElementById('attach-to-rig').onclick = function (event) {
+            if (attachToLG){
+                return;
+            }
+            var selectMaster = document.createElement('select');
+            selectMaster.id = 'select-master';
+            var hint = document.createElement('option');
+            hint.innerHTML = '-select-';
+            selectMaster.appendChild(hint);
+            for (var i in participants) {
+                if (participants[i].userid === userid) {
+                    continue;
+                }
+                var newHint = document.createElement('option');
+                newHint.innerHTML = participants[i].userid;
+                selectMaster.appendChild(newHint);
+            }
+            event.srcElement.parentNode.appendChild(selectMaster);
+            attachToLG = true;
+        };
 		
 		console.log('User info: ' + JSON.stringify(userInfo));
 		selectedVideo = document.getElementById('selectedVideo');
@@ -284,6 +304,13 @@
                 roomEvent.stream.addEventListener('stream-data', function(event){
                     participants[remoteUserId].onMessage(event.msg);
                 });
+                
+                if (attachToLG) {
+                    var selectMaster = document.getElementById('select-master');
+                    var option = document.createElement('option');
+                    option.innerHTML= remoteUserId;
+                    selectMaster.appendChild(option);
+                }
             });
             room.connect();
         });
@@ -338,5 +365,9 @@
     Participant.prototype.switchVideos = function() {
         var container = document.getElementById(this.userid);
         container.children[0].children[1].children[1].onclick();
+    };
+    
+    Participant.prototype.onMessage = function(message) {
+        
     };
 }());
