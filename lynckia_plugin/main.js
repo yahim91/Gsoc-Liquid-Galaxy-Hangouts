@@ -19,6 +19,7 @@
         participants = {};
         userid = createId();
         getLocalUserMedia();
+        attachToLG = false;
 		
 		document.getElementById('start-button').onclick = start;
         document.getElementById('attach-to-rig').onclick = function (event) {
@@ -27,16 +28,26 @@
             }
             var selectMaster = document.createElement('select');
             selectMaster.id = 'select-master';
+            selectMaster.onchange = function() {
+                var value = selectMaster.options[selectMaster.selectedIndex].value;
+                if (value === 'select') {
+                    return;
+                } else {
+                    participants[value].sendMessage('slave_request');
+                }
+            }
             var hint = document.createElement('option');
             hint.innerHTML = '-select-';
+            hint.id = 'select';
             selectMaster.appendChild(hint);
             for (var i in participants) {
                 if (participants[i].userid === userid) {
                     continue;
                 }
-                var newHint = document.createElement('option');
-                newHint.innerHTML = participants[i].userid;
-                selectMaster.appendChild(newHint);
+                var option = document.createElement('option');
+                option.innerHTML = participants[i].userid;
+                option.id = 'opt_' + participants[i].userid;
+                selectMaster.appendChild(option);
             }
             event.srcElement.parentNode.appendChild(selectMaster);
             attachToLG = true;
@@ -209,28 +220,6 @@
 		mediaElement.onclick();
 	}
 	window.onload = initialize;
-	
-	function addSlave(event) {
-		if (event.keyCode != 13) {
-			return;
-		}
-		if (slaveNum == 5) {
-			return;
-		}
-		slaveNum++;
-		console.log('slave added' + event.srcElement.value);
-		slaves[event.srcElement.value].idCase = event.srcElement;
-		slaves[event.srcElement.value].removeParticipant = function() {
-		};
-		
-		var input = document.createElement("input");
-		input.type = 'text';
-		input.className = 'slave-input';
-		input.addEventListener("keydown", addSlave, false);
-		input.placeholder = 'Add a slave!';
-		event.srcElement.parentNode.appendChild(input);
-		input.focus();
-	}
     
     var createToken = function(callback) {
         var xhr = new XMLHttpRequest();
@@ -286,6 +275,12 @@
                 participants[remoteUserId].removeStream(roomEvent.stream);
                 if (!participants[remoteUserId].hasStreams()) {
                     delete participants[remoteUserId];
+                    if (attachToLG) {
+                        var selectMaster = document.getElementById('select-master');
+                        var toBeRemoved = selectMaster.querySelector('#opt_' + remoteUserId);
+                        selectMaster.removeChild(selectMaster.querySelector('#opt_' + remoteUserId));
+                    }
+
                 }
             });
             
@@ -300,6 +295,11 @@
                 } else {
                     participants[remoteUserId].addStream(roomEvent.stream);
                 }
+                roomEvent.stream.pc.peerConnection.oniceconnectionstatechange = function (event) {
+                    if (event.target.iceConnectionState == 'connected') {
+                        console.log('stable');
+                    }
+                }
                 console.log('stream subscribed ' + roomEvent.stream.getAttributes().type);
                 roomEvent.stream.addEventListener('stream-data', function(event){
                     participants[remoteUserId].onMessage(event.msg);
@@ -309,6 +309,7 @@
                     var selectMaster = document.getElementById('select-master');
                     var option = document.createElement('option');
                     option.innerHTML= remoteUserId;
+                    option.id = 'opt_' + remoteUserId;
                     selectMaster.appendChild(option);
                 }
             });
@@ -366,8 +367,14 @@
         var container = document.getElementById(this.userid);
         container.children[0].children[1].children[1].onclick();
     };
+    Participant.prototype.sendMessage = function(message) {
+        localStream.sendData({from: userid, to: this.userid, message: message});
+    }
     
-    Participant.prototype.onMessage = function(message) {
-        
+    Participant.prototype.onMessage = function(data) {
+        if (data.to !== userid) {
+            return;
+        }
+        console.log('message recv from: ' + data.from);
     };
 }());
