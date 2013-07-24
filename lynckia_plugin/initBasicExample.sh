@@ -1,3 +1,3 @@
 #!/bin/bash
 
-node basicServer.js &
+node basicServer.js > /dev/null &

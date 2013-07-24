@@ -4,6 +4,7 @@
 	participants,
 	userid,
 	screenShareButton,
+    startButton,
     screenShared,
     screenStream,
     localStream,
@@ -11,17 +12,21 @@
     room,
 	slaves,
     attachToLG,
+    ready,
 	slaveNum;
 	
 
 	function initialize() {
         screenShared = false;
+        ready = false;
         participants = {};
         userid = createId();
         getLocalUserMedia();
         attachToLG = false;
 		
-		document.getElementById('start-button').onclick = start;
+		startButton = document.getElementById('start-button');
+        startButton.started = false;
+        startButton.onclick = start;
         document.getElementById('attach-to-rig').onclick = function (event) {
             if (attachToLG){
                 return;
@@ -104,6 +109,7 @@
         localStream = Erizo.Stream({audio:true, video: true, data: true, attributes: {userid:userid, type: 'video'}});
         localStream.init();
         localStream.addEventListener('access-accepted', function(event) {
+            ready = true;
             if (!participants[userid]) {
                 participants[userid] = new Participant ({userid: userid, stream: localStream});
                 participants[userid].show({muted: true});
@@ -245,6 +251,11 @@
     };
 	
 	function start() {
+        if (!ready || startButton.started) {
+            return;
+        }
+        startButton.started = true;
+        startButton.style.color = 'rgb(160, 157, 157)';
         var streams = [];
 		createToken(function(token){
             console.log(token);
@@ -325,6 +336,15 @@
         if (participantConfig.stream) {
             this.streams.push(participantConfig.stream);
         }
+        if (userid !== this.userid) {
+            participantConfig.stream.pc.peerConnection.onstatechange = function() {
+                console.log('');
+            }
+            
+            participantConfig.stream.pc.peerConnection.onicechange = function() {
+                console.log('');
+            }
+        }
     };
 
     Participant.prototype.show = function (conf) {
@@ -367,9 +387,10 @@
         var container = document.getElementById(this.userid);
         container.children[0].children[1].children[1].onclick();
     };
+
     Participant.prototype.sendMessage = function(message) {
         localStream.sendData({from: userid, to: this.userid, message: message});
-    }
+    };
     
     Participant.prototype.onMessage = function(data) {
         if (data.to !== userid) {

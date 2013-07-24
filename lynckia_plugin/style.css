@@ -100,6 +100,8 @@
 .tile-video {
 	position: relative;
     max-width:150px;
+    min-height:113px;
+    background-color: black;
 	display: block;
     z-index: 10;
 }
