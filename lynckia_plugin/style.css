@@ -73,6 +73,11 @@
     height: 30px;
 }
 
+
+#start-button {
+    color: rgb(160, 157, 157);
+}
+
 #select-master {
     position:absolute;
     width:100%;

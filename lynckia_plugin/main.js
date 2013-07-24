@@ -13,6 +13,7 @@
 	slaves,
     attachToLG,
     ready,
+    streams,
 	slaveNum;
 	
 
@@ -20,6 +21,7 @@
         screenShared = false;
         ready = false;
         participants = {};
+        streams = [];
         userid = createId();
         getLocalUserMedia();
         attachToLG = false;
@@ -109,12 +111,12 @@
         localStream = Erizo.Stream({audio:true, video: true, data: true, attributes: {userid:userid, type: 'video'}});
         localStream.init();
         localStream.addEventListener('access-accepted', function(event) {
-            ready = true;
             if (!participants[userid]) {
                 participants[userid] = new Participant ({userid: userid, stream: localStream});
                 participants[userid].show({muted: true});
             }
              console.log("Video stream id is " + JSON.stringify(localStream.getAttributes()));
+             connectToRoom();
         });
 		localStream.addEventListener('access-denied', function(event) {
             
@@ -249,24 +251,29 @@
             } 
         }
     };
-	
-	function start() {
-        if (!ready || startButton.started) {
-            return;
-        }
-        startButton.started = true;
+
+    function enableStart() {
+        ready = true;
+        startButton.style.color = 'black';
+    }
+    function disableStart() {
+        ready = false;
         startButton.style.color = 'rgb(160, 157, 157)';
-        var streams = [];
-		createToken(function(token){
+    }
+
+    
+    function connectToRoom() {
+        createToken(function(token){
             console.log(token);
             room = Erizo.Room({'token': token});
             room.addEventListener('room-connected', function(roomEvent) {
                 console.log('room-connected');
-                if (screenShared) {
+                enableStart();
+                /*if (screenShared) {
                     setTimeout(function(){room.publish(screenStream)}, 3000);
                 }
                 room.publish(localStream);
-                subscribeToStreams(roomEvent.streams);
+                subscribeToStreams(roomEvent.streams);*/
             });
             
             room.addEventListener('stream-added', function (roomEvent) {
@@ -326,11 +333,21 @@
             });
             room.connect();
         });
-	}
+    };
+	
+	function start() {
+        if (!ready || startButton.started) {
+            return;
+        }
+        startButton.started = true;
+        disableStart();
+        room.publish(localStream);
+    };
     
     function Participant(participantConfig) {
         var self = this;
         this.streams = [];
+        this.slaves = {};
         this.visible = false;
     	this.userid = participantConfig.userid;
         if (participantConfig.stream) {
@@ -396,6 +413,9 @@
         if (data.to !== userid) {
             return;
         }
+        var message = data.message;
         console.log('message recv from: ' + data.from);
+        if (data.message == 'slave_request') {
+        }
     };
 }());
