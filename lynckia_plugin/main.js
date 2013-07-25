@@ -8,14 +8,13 @@
     screenShared,
     screenStream,
     localStream,
-	userInfo,
     room,
 	slaves,
     attachToLG,
     ready,
     streams,
 	slaveNum;
-	
+    	
 
 	function initialize() {
         screenShared = false;
@@ -36,11 +35,18 @@
             var selectMaster = document.createElement('select');
             selectMaster.id = 'select-master';
             selectMaster.onchange = function() {
-                var value = selectMaster.options[selectMaster.selectedIndex].value;
-                if (value === 'select') {
+                var masterId = selectMaster.options[selectMaster.selectedIndex].value;
+                if (masterId === 'select') {
                     return;
                 } else {
-                    participants[value].sendMessage('slave_request');
+                    localStream.attributes.role = 'slave';
+                    localStream.attributes.masterId = masterId;
+                    participants[masterId].galaxyConnectionState = 'connecting';
+                    selectMaster.style.display = 'none';
+                    var stateMessage = document.createElement('div');
+                    stateMessage.id = 'state-message';
+                    stateMessage.innerHTML = 'Connecting ...';
+                    event.srcElement.parentNode.appendChild(stateMessage);
                 }
             }
             var hint = document.createElement('option');
@@ -60,7 +66,6 @@
             attachToLG = true;
         };
 		
-		console.log('User info: ' + JSON.stringify(userInfo));
 		selectedVideo = document.getElementById('selectedVideo');
 		screenShareButton = document.getElementById('share-screen-button');
 		screenShareButton.onclick = function() {
@@ -108,7 +113,7 @@
 
 	// Get user media
 	function getLocalUserMedia() {
-        localStream = Erizo.Stream({audio:true, video: true, data: true, attributes: {userid:userid, type: 'video'}});
+        localStream = Erizo.Stream({audio:true, video: true, data: true, attributes: {userid:userid, type: 'video', role:'regular'}});
         localStream.init();
         localStream.addEventListener('access-accepted', function(event) {
             if (!participants[userid]) {
@@ -272,14 +277,18 @@
                 /*if (screenShared) {
                     setTimeout(function(){room.publish(screenStream)}, 3000);
                 }
-                room.publish(localStream);
-                subscribeToStreams(roomEvent.streams);*/
+                room.publish(localStream);*/
+                subscribeToStreams(roomEvent.streams);
             });
             
             room.addEventListener('stream-added', function (roomEvent) {
                 if (userid === roomEvent.stream.getAttributes().userid) {
                     return;
                 } else {
+                    var attributes = roomEvent.stream.attributes;
+                    if (attributes.type === 'video' && attributes.role === 'slave' && attributes.masterId !== userid) {
+                        return;
+                    }
                     room.subscribe(roomEvent.stream);
                     console.log('subscribe');
                 }
@@ -289,47 +298,63 @@
                 if (roomEvent.stream.getAttributes().userid === userid) {
                     return;
                 }
-                var remoteUserId = roomEvent.stream.getAttributes().userid;
-                participants[remoteUserId].removeStream(roomEvent.stream);
-                if (!participants[remoteUserId].hasStreams()) {
-                    delete participants[remoteUserId];
-                    if (attachToLG) {
-                        var selectMaster = document.getElementById('select-master');
-                        var toBeRemoved = selectMaster.querySelector('#opt_' + remoteUserId);
-                        selectMaster.removeChild(selectMaster.querySelector('#opt_' + remoteUserId));
+                var attributes = roomEvent.stream.getAttributes();
+                var remoteUserId = attributes.userid;
+                if (attributes.role === 'regular') {
+                    participants[remoteUserId].removeStream(roomEvent.stream);
+                    if (!participants[remoteUserId].hasStreams()) {
+                        delete participants[remoteUserId];
+                        if (attachToLG) {
+                            var selectMaster = document.getElementById('select-master');
+                            var toBeRemoved = selectMaster.querySelector('#opt_' + remoteUserId);
+                            selectMaster.removeChild(selectMaster.querySelector('#opt_' + remoteUserId));
+                        }
                     }
-
+                } else {
+                    if (attributes.masterId === userid) {
+                        participants[userid].removeSlave(remoteUserId);
+                    }
                 }
             });
             
             room.addEventListener('stream-subscribed', function(roomEvent) {
-                var remoteUserId = roomEvent.stream.getAttributes().userid;
-                if (participants[remoteUserId] === undefined) {
-                    participants[remoteUserId] = new Participant({
+                var attributes = roomEvent.stream.getAttributes();
+                var remoteUserId = attributes.userid;
+                if (attributes.role === 'regular') {
+                    if (participants[remoteUserId] === undefined) {
+                        participants[remoteUserId] = new Participant({
                         userid: remoteUserId,
                         stream: roomEvent.stream
                     });
                     participants[remoteUserId].show({muted: false});
-                } else {
-                    participants[remoteUserId].addStream(roomEvent.stream);
-                }
-                roomEvent.stream.pc.peerConnection.oniceconnectionstatechange = function (event) {
-                    if (event.target.iceConnectionState == 'connected') {
-                        console.log('stable');
+                    } else {
+                        participants[remoteUserId].addStream(roomEvent.stream);
+                    } 
+                    roomEvent.stream.addEventListener('stream-data', function(event){
+                        participants[remoteUserId].onMessage(event.msg);
+                    });
+                    if (attachToLG) {
+                        var selectMaster = document.getElementById('select-master');
+                        var option = document.createElement('option');
+                        option.innerHTML= remoteUserId;
+                        option.id = 'opt_' + remoteUserId;
+                        selectMaster.appendChild(option);
                     }
+
+                } else {
+                    var slave = new Participant({
+                        userid: remoteUserId,
+                        stream: roomEvent.stream
+                    });
+                    participants[userid].slaves[remoteUserId] = slave;
+                    slave.sendMessage('request_accepted');
+                    var slaveDiv = document.createElement('div');
+                    slaveDiv.id = 'slave' + remoteUserId;
+                    slaveDiv.innerHTML = 'slave: ' + remoteUserId;
+                    document.getElementById('slaves').appendChild(slaveDiv);
                 }
+
                 console.log('stream subscribed ' + roomEvent.stream.getAttributes().type);
-                roomEvent.stream.addEventListener('stream-data', function(event){
-                    participants[remoteUserId].onMessage(event.msg);
-                });
-                
-                if (attachToLG) {
-                    var selectMaster = document.getElementById('select-master');
-                    var option = document.createElement('option');
-                    option.innerHTML= remoteUserId;
-                    option.id = 'opt_' + remoteUserId;
-                    selectMaster.appendChild(option);
-                }
             });
             room.connect();
         });
@@ -342,26 +367,25 @@
         startButton.started = true;
         disableStart();
         room.publish(localStream);
+        if (screenShared) {
+            setTimeout(function(){
+                room.publish(screenStream);
+                },
+                3000
+            );
+        }
+
     };
     
     function Participant(participantConfig) {
-        var self = this;
         this.streams = [];
         this.slaves = {};
         this.visible = false;
+        this.role = 'regular';
     	this.userid = participantConfig.userid;
         if (participantConfig.stream) {
             this.streams.push(participantConfig.stream);
-        }
-        if (userid !== this.userid) {
-            participantConfig.stream.pc.peerConnection.onstatechange = function() {
-                console.log('');
-            }
-            
-            participantConfig.stream.pc.peerConnection.onicechange = function() {
-                console.log('');
-            }
-        }
+        } 
     };
 
     Participant.prototype.show = function (conf) {
@@ -408,6 +432,13 @@
     Participant.prototype.sendMessage = function(message) {
         localStream.sendData({from: userid, to: this.userid, message: message});
     };
+
+    Participant.prototype.removeSlave = function (slaveId) {
+        delete this.slaves[slaveId];
+        var toBeDeleted = document.getElementById('slave' + slaveId);
+        toBeDeleted.parentNode.removeChild(toBeDeleted);
+
+    };
     
     Participant.prototype.onMessage = function(data) {
         if (data.to !== userid) {
@@ -415,7 +446,10 @@
         }
         var message = data.message;
         console.log('message recv from: ' + data.from);
-        if (data.message == 'slave_request') {
+        if (data.message == 'request_accepted') {
+            this.galaxyConnectionState = 'connected';
+            document.getElementById('state-message').innerHTML = 'Connected';
+            document.getElementById('attach-to-rig').style.color = 'rgb(160, 157, 157)'; 
         }
     };
 }());

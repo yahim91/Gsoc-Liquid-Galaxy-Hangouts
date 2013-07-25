@@ -42,6 +42,7 @@
 }
 
 .menu {
+    display: block;
 	position: relative;
 	width: 160px;
 	height: 390px;
@@ -59,14 +60,25 @@
 	background-color: white;
 }
 
-.buttons {
-    position: absolute;
+#slaves {
+    height: 40%;
+}
+
+#slaves div {
+    height: 20px;
+    overflow: hidden;
+}
+
+#buttons{
+    height: 60%;
+}
+
+.menu-text {
     display: block;
-    height:60%;
     width:100%;
 }
 
-.buttons div {
+.menu-text div {
     text-align: center;
 	font-family: "proxima-nova",sans-serif;
     cursor:pointer;
@@ -124,8 +136,6 @@
     background: #6C6F72;
     -webkit-transition: width 0.5s, box-shadow 0.4s;
 }
-
-
 
 .video-tile-figure:hover figcaption {
     width: 120%;
