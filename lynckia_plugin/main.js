@@ -61,7 +61,6 @@
                 } else {
                     localStream.attributes.role = 'slave';
                     localStream.attributes.masterId = masterId;
-                    participants[masterId].galaxyConnectionState = 'connecting';
                     selectMaster.style.display = 'none';
                     var stateMessage = document.createElement('div');
                     stateMessage.id = 'state-message';
@@ -73,13 +72,11 @@
             hint.innerHTML = '-select-';
             hint.id = 'select';
             selectMaster.appendChild(hint);
-            for (var i in participants) {
-                if (participants[i].userid === userid) {
-                    continue;
-                }
+            for (var i in room.remoteStreams) {
+                var remoteUserId = room.remoteStreams[i].getAttributes().userid;
                 var option = document.createElement('option');
-                option.innerHTML = participants[i].userid;
-                option.id = 'opt_' + participants[i].userid;
+                option.innerHTML = remoteUserId;
+                option.id = 'opt_' + remoteUserId;
                 selectMaster.appendChild(option);
             }
             event.srcElement.parentNode.appendChild(selectMaster);
@@ -189,7 +186,6 @@
         var screen_icon = container.children[0].children[1].getElementsByClassName('screen-icon');
         container.children[0].children[1].removeChild(screen_icon[0]);
         container.children[0].children[0].replaceStream(streamLeft.stream);
-        
     }
 
     function getMax(numArray) {
@@ -209,6 +205,26 @@
         }
         average = values / length;
         return average;
+    }
+    window.showMessage = showMessage;
+    window.hide = hideMessage;
+    function showMessage(message) {
+        hideMessage();
+        var notifier = document.querySelector('.message');
+        notifier.innerHTML = message;
+        document.querySelector('.notification').classList.toggle('pop');
+        setTimeout(function() {
+            if (notifier.innerHTML == message) {
+                hideMessage();
+            }
+        }, 5000);
+    }
+
+    function hideMessage () {
+        var node = document.querySelector('.notification');
+        if (node.classList.contains('pop')){
+            node.classList.toggle('pop');
+        }
     }
 
     function updateAnalysers(param) {
@@ -359,12 +375,8 @@ function addVideoTag(configuration) {
             room.addEventListener('room-connected', function(roomEvent) {
                 console.log('room-connected');
                 enableStart();
-                /*if (screenShared) {
-                    setTimeout(function(){room.publish(screenStream)}, 3000);
-                }
-                room.publish(localStream);*/
                 streams = roomEvent.streams;
-                //subscribeToStreams(roomEvent.streams);
+                showMessage('Ready to join!');
             });
             
             room.addEventListener('stream-added', function (roomEvent) {
@@ -375,12 +387,20 @@ function addVideoTag(configuration) {
                     if (attributes.type === 'video' && attributes.role === 'slave' && attributes.masterId !== userid) {
                         return;
                     }
-                    if (startButton.started) {
+                    if (startButton.started && participants[userid].role === 'regular') {
                         room.subscribe(roomEvent.stream);
                     } else {
                         streams.push(roomEvent.stream);
                     }
-                    console.log('subscribe');
+
+                    if (attachToLG) {
+                        var selectMaster = document.getElementById('select-master');
+                        var option = document.createElement('option');
+                        var remoteUserId =  roomEvent.stream.getAttributes().userid;
+                        option.innerHTML = remoteUserId;
+                        option.id = 'opt_' + remoteUserId;
+                        selectMaster.appendChild(option);
+                    }
                 }
             });
             
@@ -413,24 +433,16 @@ function addVideoTag(configuration) {
                 if (attributes.role === 'regular') {
                     if (participants[remoteUserId] === undefined) {
                         participants[remoteUserId] = new Participant({
-                        userid: remoteUserId,
-                        stream: roomEvent.stream
-                    });
-                    participants[remoteUserId].show({muted: false});
+                            userid: remoteUserId,
+                            stream: roomEvent.stream
+                        });
+                        participants[remoteUserId].show({muted: false});
                     } else {
                         participants[remoteUserId].addStream(roomEvent.stream);
                     } 
                     roomEvent.stream.addEventListener('stream-data', function(event){
                         participants[remoteUserId].onMessage(event.msg);
                     });
-                    if (attachToLG) {
-                        var selectMaster = document.getElementById('select-master');
-                        var option = document.createElement('option');
-                        option.innerHTML= remoteUserId;
-                        option.id = 'opt_' + remoteUserId;
-                        selectMaster.appendChild(option);
-                    }
-
                 } else {
                     var slave = new Participant({
                         userid: remoteUserId,
