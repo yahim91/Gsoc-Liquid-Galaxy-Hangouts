@@ -146,6 +146,15 @@
     left: 0px;
 }
 
+.volume-meter {
+    position: absolute;
+    z-index: 10;
+    width:100%;
+    height: 10px;
+    bottom:0;
+    /*background-color: green;*/
+}
+
 .mute {
     margin-top: 5%;
 }

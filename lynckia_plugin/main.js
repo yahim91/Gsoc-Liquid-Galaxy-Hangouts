@@ -13,17 +13,37 @@
     attachToLG,
     ready,
     streams,
-	slaveNum;
+	slaveNum,
+    meters,
+    audioContext;
     	
 
 	function initialize() {
         screenShared = false;
         ready = false;
         participants = {};
-        streams = [];
+        meters = [];
+        audioContext = new AudioContext();
+
         userid = createId();
         getLocalUserMedia();
         attachToLG = false;
+        /*setInterval(function() {
+            for (var i = 0; i < meters.length; i++) {
+                var freqByteData = new Uint8Array(meters[i].analyzerNode.frequencyBinCount);
+                meters[i].analyzerNode.getByteFrequencyData(freqByteData); 
+                var newVol = getAverageVolume(freqByteData.subarray(0,200));
+                meters[i].volume = Math.min(newVol, meters[i].volume);
+            }
+        },
+        5000);
+
+        setInterval(function(){
+            for (var i = 0; i < meters.length; i++) {
+                updateAnalysers({meter: meters[i].meter, analyzerNode: meters[i].analyzerNode, volume: meters[i].volume});
+            }
+        }, 1000/60);*/
+
 		
 		startButton = document.getElementById('start-button');
         startButton.started = false;
@@ -69,7 +89,7 @@
 		selectedVideo = document.getElementById('selectedVideo');
 		screenShareButton = document.getElementById('share-screen-button');
 		screenShareButton.onclick = function() {
-			screenStream = Erizo.Stream({screen: true, video: true, data: true, attributes: {userid:userid, type: 'screen'}});
+			screenStream = Erizo.Stream({screen: true, video: true, data: true, attributes: {userid:userid, type: 'screen', role:'regular'}});
             screenStream.init();
             screenStream.addEventListener('access-accepted', function(event) {
                 participants[userid].addStream(screenStream);
@@ -172,8 +192,48 @@
         
     }
 
-	function addVideoTag(configuration) {
-        var container = document.createElement('figure');
+    function getMax(numArray) {
+            return Math.max.apply(null, numArray);
+    }
+    function getMin(numArray) {
+            return Math.min.apply(null, numArray);
+    }
+    
+    function getAverageVolume(array) {
+        var values = 0;
+        var average;
+        var length = array.length;
+        // get all the frequency amplitudes
+        for (var i = 0; i < length; i++) {
+            values += array[i];
+        }
+        average = values / length;
+        return average;
+    }
+
+    function updateAnalysers(param) {
+        var freqByteData = new Uint8Array(param.analyzerNode.frequencyBinCount);
+        param.analyzerNode.getByteFrequencyData(freqByteData); 
+        var percent = getAverageVolume(freqByteData.subarray(0,200));
+        var dif = (percent - param.volume)*100/30* (113/100);
+        var meter = param.meter.getContext('2d');
+        meter.clearRect(0,0,300,100);
+        meter.fillStyle = 'green';
+        meter.fillRect(0,0, dif,100);
+        console.log(percent);
+    }
+
+    function convertToMono( input ) {
+        var splitter = audioContext.createChannelSplitter(2);
+        var merger = audioContext.createChannelMerger(2);
+        input.connect( splitter );
+        splitter.connect( merger, 0, 0 );
+        splitter.connect( merger, 0, 1 );
+        return merger;
+    }
+
+function addVideoTag(configuration) {
+    var container = document.createElement('figure');
         container.className = 'video-tile-figure';
         var caption = document.createElement('figcaption');
         caption.className = 'video-tile-caption';
@@ -183,9 +243,11 @@
         } else {
             muteButton.src = '/assets/unmuted.png';
         }
+
         muteButton.className='mute';
         caption.appendChild(muteButton);
         var stream = configuration.participant.streams[0].stream;
+        
 		var mediaElement = document.createElement('video');
 		mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream
 				: webkitURL.createObjectURL(stream);
@@ -212,6 +274,7 @@
 					: webkitURL.createObjectURL(_stream);
             }
 		}
+ 
         muteButton.onclick = function () {
             if (mediaElement.muted === false) {
                 mediaElement.muted = true;
@@ -221,7 +284,11 @@
                 muteButton.src = '/assets/unmuted.png';
             }
         }
+        volumeMeter = document.createElement('canvas');
+        volumeMeter.className = 'volume-meter';
+        volumeMeter.id = 'meter' + configuration.participant.userid;
         container.appendChild(mediaElement);
+        container.appendChild(volumeMeter);
         container.appendChild(caption);
 		var remoteMediaStreams = document.getElementById('remote-videos');
         var li = document.createElement('li');
@@ -231,6 +298,24 @@
         li.currStream = 0;
 		remoteMediaStreams.appendChild(li);
 		mediaElement.onclick();
+        /*if (configuration.participant.userid !== userid) {
+            setTimeout(function () {
+                var audioInput = audioContext.createMediaStreamSource(stream);
+                var analyzerNode = audioContext.createAnalyser();
+                convertToMono(audioInput).connect(analyzerNode);
+                analyzerNode.fftSize = 2048;
+                var zeroGain = audioContext.createGain();
+                zeroGain.gain.value = 0.0;
+                analyzerNode.connect(zeroGain);
+                zeroGain.connect(audioContext.destination);
+
+                var volume = 150;
+
+                meters.push({meter: volumeMeter, volume: volume, analyzerNode: analyzerNode});
+            }, 2000);
+        };*/
+
+        
 	}
 	window.onload = initialize;
     
@@ -278,7 +363,8 @@
                     setTimeout(function(){room.publish(screenStream)}, 3000);
                 }
                 room.publish(localStream);*/
-                subscribeToStreams(roomEvent.streams);
+                streams = roomEvent.streams;
+                //subscribeToStreams(roomEvent.streams);
             });
             
             room.addEventListener('stream-added', function (roomEvent) {
@@ -289,7 +375,11 @@
                     if (attributes.type === 'video' && attributes.role === 'slave' && attributes.masterId !== userid) {
                         return;
                     }
-                    room.subscribe(roomEvent.stream);
+                    if (startButton.started) {
+                        room.subscribe(roomEvent.stream);
+                    } else {
+                        streams.push(roomEvent.stream);
+                    }
                     console.log('subscribe');
                 }
             });
@@ -374,7 +464,7 @@
                 3000
             );
         }
-
+        subscribeToStreams(streams);
     };
     
     function Participant(participantConfig) {
