@@ -23,7 +23,7 @@
         ready = false;
         participants = {};
         meters = [];
-        audioContext = new AudioContext();
+        //audioContext = new AudioContext();
 
         userid = createId();
         getLocalUserMedia();
@@ -55,17 +55,19 @@
             var selectMaster = document.createElement('select');
             selectMaster.id = 'select-master';
             selectMaster.onchange = function() {
+                if (startButton.started) {
+                    return;
+                }
                 var masterId = selectMaster.options[selectMaster.selectedIndex].value;
                 if (masterId === 'select') {
+                    localStream.attributes.role = 'regular';
+                    participants[userid].role = 'regular';
                     return;
                 } else {
                     localStream.attributes.role = 'slave';
                     localStream.attributes.masterId = masterId;
-                    selectMaster.style.display = 'none';
-                    var stateMessage = document.createElement('div');
-                    stateMessage.id = 'state-message';
-                    stateMessage.innerHTML = 'Connecting ...';
-                    event.srcElement.parentNode.appendChild(stateMessage);
+                    participants[userid].role = 'slave';
+                    participants[userid].masterId = masterId;
                 }
             }
             var hint = document.createElement('option');
@@ -96,13 +98,11 @@
                         room.unpublish(screenStream);
                     }
                     participants[userid].removeStream(screenStream);
-                    
                 }
                 screenShared = true;
                 if (room && room.state == 2) {
                     room.publish(screenStream);
                 }
-            
             });
             screenStream.addEventListener('access-denied', function(event) {
                 console.log('denied');
@@ -134,7 +134,8 @@
         localStream.init();
         localStream.addEventListener('access-accepted', function(event) {
             if (!participants[userid]) {
-                participants[userid] = new Participant ({userid: userid, stream: localStream});
+                participants[userid] = new Participant ({userid: userid, role: 'regular'});
+                participants[userid].addStream(localStream);
                 participants[userid].show({muted: true});
             }
              console.log("Video stream id is " + JSON.stringify(localStream.getAttributes()));
@@ -180,14 +181,7 @@
 		}
     }
     
-    function removeStreamFromVideo(stream) {
-        var container = document.getElementById(stream.getAttributes().userid);
-        var streamLeft = container.participant.streams[0];
-        var screen_icon = container.children[0].children[1].getElementsByClassName('screen-icon');
-        container.children[0].children[1].removeChild(screen_icon[0]);
-        container.children[0].children[0].replaceStream(streamLeft.stream);
-    }
-
+    
     function getMax(numArray) {
             return Math.max.apply(null, numArray);
     }
@@ -248,12 +242,14 @@
         return merger;
     }
 
-function addVideoTag(configuration) {
-    var container = document.createElement('figure');
+    function addVideoTag(configuration) {
+        var container = document.createElement('figure');
         container.className = 'video-tile-figure';
         var caption = document.createElement('figcaption');
         caption.className = 'video-tile-caption';
         var muteButton = document.createElement('img');
+        muteButton.muted = configuration.muted;
+
         if (configuration.muted === true) {
             muteButton.src = '/assets/muted.png';
         } else {
@@ -261,7 +257,21 @@ function addVideoTag(configuration) {
         }
 
         muteButton.className='mute';
+        var screenIcon = document.createElement('div');
+        screenIcon.className = 'screen-icon';
+        screenIcon.innerHTML = 'S';
+        screenIcon.currStream = 0;
+        screenIcon.onclick = function() {
+            if (configuration.participant.streams.length < 2) {
+                return;
+            }
+            this.currStream = 1 - this.currStream;
+            var nextStream = configuration.participant.streams[this.currStream];
+            configuration.participant.video.replaceStream(nextStream.stream);
+        }
+
         caption.appendChild(muteButton);
+        caption.appendChild(screenIcon);
         var stream = configuration.participant.streams[0].stream;
         
 		var mediaElement = document.createElement('video');
@@ -282,13 +292,16 @@ function addVideoTag(configuration) {
 			selectedVideo.play();
 		};
 		mediaElement.replaceStream = function(_stream) {
-			mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? _stream
-					: webkitURL.createObjectURL(_stream);
-			mediaElement.stream = _stream;
             if (selectedVideo.videoId === configuration.participant.userid) {
                 selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? _stream
 					: webkitURL.createObjectURL(_stream);
+                selectedVideo.muted = true;
             }
+            mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? _stream
+					: webkitURL.createObjectURL(_stream);
+            mediaElement.muted = muteButton.muted;
+			mediaElement.stream = _stream;
+
 		}
  
         muteButton.onclick = function () {
@@ -298,8 +311,10 @@ function addVideoTag(configuration) {
             } else {
                 mediaElement.muted = false;
                 muteButton.src = '/assets/unmuted.png';
-            }
+            } 
+            muteButton.muted = mediaElement.muted;
         }
+        configuration.participant.video = mediaElement;
         volumeMeter = document.createElement('canvas');
         volumeMeter.className = 'volume-meter';
         volumeMeter.id = 'meter' + configuration.participant.userid;
@@ -330,10 +345,14 @@ function addVideoTag(configuration) {
                 meters.push({meter: volumeMeter, volume: volume, analyzerNode: analyzerNode});
             }, 2000);
         };*/
-
-        
 	}
+
+    function leaveRoom() {
+        room.disconnect();
+    }
+
 	window.onload = initialize;
+    window.onbeforeload = leaveRoom;
     
     var createToken = function(callback) {
         var xhr = new XMLHttpRequest();
@@ -384,16 +403,21 @@ function addVideoTag(configuration) {
                     return;
                 } else {
                     var attributes = roomEvent.stream.attributes;
-                    if (attributes.type === 'video' && attributes.role === 'slave' && attributes.masterId !== userid) {
+                    if (attributes.role === 'slave' && attributes.masterId !== userid) {
                         return;
                     }
-                    if (startButton.started && participants[userid].role === 'regular') {
-                        room.subscribe(roomEvent.stream);
+                    if (startButton.started) {
+                        if (participants[userid].role === 'regular' || participants[userid].role === 'master') {
+                            room.subscribe(roomEvent.stream);
+                        }
                     } else {
                         streams.push(roomEvent.stream);
                     }
 
                     if (attachToLG) {
+                        if (attributes.type === 'screen') {
+                            return;
+                        }
                         var selectMaster = document.getElementById('select-master');
                         var option = document.createElement('option');
                         var remoteUserId =  roomEvent.stream.getAttributes().userid;
@@ -404,13 +428,19 @@ function addVideoTag(configuration) {
                 }
             });
             
-            room.addEventListener('stream-removed', function(roomEvent){
+            room.addEventListener('stream-removed', function(roomEvent) {
                 if (roomEvent.stream.getAttributes().userid === userid) {
                     return;
                 }
                 var attributes = roomEvent.stream.getAttributes();
                 var remoteUserId = attributes.userid;
                 if (attributes.role === 'regular') {
+                    if (!participants[remoteUserId]) {
+                        return;
+                    }
+                    if(participants[userid].role === 'slave' && remoteUserId === participants[userid].masterId) {
+                        location.reload();
+                    }
                     participants[remoteUserId].removeStream(roomEvent.stream);
                     if (!participants[remoteUserId].hasStreams()) {
                         delete participants[remoteUserId];
@@ -434,28 +464,32 @@ function addVideoTag(configuration) {
                     if (participants[remoteUserId] === undefined) {
                         participants[remoteUserId] = new Participant({
                             userid: remoteUserId,
-                            stream: roomEvent.stream
+                            role: 'regular'
                         });
+                    }
+                    participants[remoteUserId].addStream(roomEvent.stream);
+                    if (((participants[userid].role === 'regular' || participants[userid].role === 'master') ||
+                        (participants[userid].idToDisplay === remoteUserId)) && !participants[remoteUserId].visible) {
                         participants[remoteUserId].show({muted: false});
-                    } else {
-                        participants[remoteUserId].addStream(roomEvent.stream);
-                    } 
+                    }
                     roomEvent.stream.addEventListener('stream-data', function(event){
                         participants[remoteUserId].onMessage(event.msg);
                     });
-                } else {
+                    if (participants[userid].role === 'master') {
+                        participants[userid].handleSlaveVideos();
+                    }
+                } else if (attributes.masterId === userid){
                     var slave = new Participant({
                         userid: remoteUserId,
-                        stream: roomEvent.stream
+                        role: 'slave'
                     });
-                    participants[userid].slaves[remoteUserId] = slave;
-                    slave.sendMessage('request_accepted');
-                    var slaveDiv = document.createElement('div');
-                    slaveDiv.id = 'slave' + remoteUserId;
-                    slaveDiv.innerHTML = 'slave: ' + remoteUserId;
-                    document.getElementById('slaves').appendChild(slaveDiv);
-                }
+                    slave.addStream(roomEvent.stream);
 
+                    participants[userid].role = 'master';
+                    participants[userid].slaves[remoteUserId] = slave;
+                    slave.sendMessage({type: 'request_accepted'});
+                    showMessage('Node ' + remoteUserId + ' joined!');
+                }
                 console.log('stream subscribed ' + roomEvent.stream.getAttributes().type);
             });
             room.connect();
@@ -476,18 +510,21 @@ function addVideoTag(configuration) {
                 3000
             );
         }
-        subscribeToStreams(streams);
+        if (localStream.attributes.role === 'regular') {
+            subscribeToStreams(streams);
+        } else {
+            var master = room.getStreamsByAttribute('userid', localStream.attributes.masterId)[0];
+            room.subscribe(master);
+        }
     };
     
     function Participant(participantConfig) {
         this.streams = [];
         this.slaves = {};
         this.visible = false;
-        this.role = 'regular';
+        this.currentDisplay;
+        this.role = participantConfig.role;
     	this.userid = participantConfig.userid;
-        if (participantConfig.stream) {
-            this.streams.push(participantConfig.stream);
-        } 
     };
 
     Participant.prototype.show = function (conf) {
@@ -499,12 +536,7 @@ function addVideoTag(configuration) {
     };
     
     Participant.prototype.addStream = function(stream) {
-        this.streams.push(stream);
-        if (this.visible) {
-            addStreamToVideo(stream);
-        } else {
-            this.show();
-        }
+        this.streams.push(stream); 
     };
     
     Participant.prototype.removeStream = function (toBeRemoved) {
@@ -516,7 +548,7 @@ function addVideoTag(configuration) {
         for (var i in this.streams) {
             if (toBeRemoved === this.streams[i]) {
                 this.streams.splice(i,1);
-                removeStreamFromVideo(toBeRemoved);
+                this.video.replaceStream(this.streams[0].stream);
                 break;
             }
         }
@@ -527,8 +559,7 @@ function addVideoTag(configuration) {
     };
     
     Participant.prototype.switchVideos = function() {
-        var container = document.getElementById(this.userid);
-        container.children[0].children[1].children[1].onclick();
+        this.video.onclick();
     };
 
     Participant.prototype.sendMessage = function(message) {
@@ -536,10 +567,11 @@ function addVideoTag(configuration) {
     };
 
     Participant.prototype.removeSlave = function (slaveId) {
+        var id;
+        if (id = this.slaves[slaveId].currentDisplay) {
+            participants[id].isDisplayedBy = null;
+        }
         delete this.slaves[slaveId];
-        var toBeDeleted = document.getElementById('slave' + slaveId);
-        toBeDeleted.parentNode.removeChild(toBeDeleted);
-
     };
     
     Participant.prototype.onMessage = function(data) {
@@ -548,10 +580,30 @@ function addVideoTag(configuration) {
         }
         var message = data.message;
         console.log('message recv from: ' + data.from);
-        if (data.message == 'request_accepted') {
+        if (message.type == 'request_accepted') {
             this.galaxyConnectionState = 'connected';
-            document.getElementById('state-message').innerHTML = 'Connected';
-            document.getElementById('attach-to-rig').style.color = 'rgb(160, 157, 157)'; 
+            showMessage('Connected to master ' + data.from);
+        } else if (message.type == 'display_request') {
+            var toBeDisplayed = room.getStreamsByAttribute('userid', message.idToDisplay)[0];
+            participants[userid].idToDisplay = message.idToDisplay;
+            room.subscribe(toBeDisplayed);
         }
     };
+    Participant.prototype.handleSlaveVideos = function () {
+        for (var i in this.slaves) {
+            if(!this.slaves[i].currentDisplay) {
+                for (var j in participants) {
+                    if (j === userid) {
+                        continue;
+                    }
+                    if (!participants[j].isDisplayedBy) {
+                        participants[j].idDisplayedBy = i;
+                        this.slaves[i].currentDisplay = j;
+                        this.slaves[i].sendMessage({type: 'display_request', idToDisplay: j});
+                        return;
+                    }
+                }
+            }
+        }
+    }
 }());
