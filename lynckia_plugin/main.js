@@ -5,6 +5,7 @@
 	userid,
 	screenShareButton,
     startButton,
+    attachButton,
     screenShared,
     screenStream,
     localStream,
@@ -23,10 +24,10 @@
         ready = false;
         participants = {};
         meters = [];
-        //audioContext = new AudioContext();
+        audioContext = new AudioContext();
 
         userid = createId();
-        getLocalUserMedia();
+        getLocalUserMedia({audio:true, video:true, data:true});
         attachToLG = false;
         /*setInterval(function() {
             for (var i = 0; i < meters.length; i++) {
@@ -36,19 +37,74 @@
                 meters[i].volume = Math.min(newVol, meters[i].volume);
             }
         },
-        5000);
+        1000);*/
 
-        setInterval(function(){
+        /*setInterval(function(){
             for (var i = 0; i < meters.length; i++) {
                 updateAnalysers({meter: meters[i].meter, analyzerNode: meters[i].analyzerNode, volume: meters[i].volume});
             }
         }, 1000/60);*/
 
-		
+		var muteMic = document.getElementById('mic');
+        muteMic.muted = false;
+        muteMic.onclick = function() {
+            if (muteMic.muted === false) {
+                muteMic.muted = true;
+                muteMic.src = "/assets/microphone-muted.png";
+                muteMic.title = "Unmute microphone";
+                if (localStream) {
+                    if (localStream.stream.getAudioTracks()[0].onmute === null) {
+                        localStream.stream.getAudioTracks()[0].onmute = showMessage('Microphone muted');
+                    }
+                    localStream.stream.getAudioTracks()[0].enabled = false;
+                }
+            } else {
+                muteMic.muted = false;
+                muteMic.src = "/assets/microphone-mute.png";
+                muteMic.title = "Mute microphone";
+                if (localStream) {
+                    if (localStream.stream.getAudioTracks()[0].onunmute === null) {
+                        localStream.stream.getAudioTracks()[0].onunmute = showMessage('Microphone unmuted');
+                    }
+                    localStream.stream.getAudioTracks()[0].enabled = true;
+                }
+            }
+        }
+        
+        var muteCamera = document.getElementById('camera');
+        muteCamera.muted = false;
+        muteCamera.onclick = function () {
+            if (muteCamera.muted === false) {
+                muteCamera.muted = true;
+                muteCamera.src = "/assets/camera-muted.png";
+                muteCamera.title = "Turn camera on";
+                if (localStream) {
+                    if (localStream.stream.getVideoTracks()[0].onmute === null) {
+                        localStream.stream.getVideoTracks()[0].onmute = showMessage('Camera muted');
+                    }
+                    localStream.stream.getVideoTracks()[0].enabled = false;
+                }
+            } else {
+                muteCamera.muted = false;
+                muteCamera.src = "/assets/camera-mute.png";
+                muteCamera.title = "Turn camera off";
+                if (localStream) {
+                    if (localStream.stream.getVideoTracks()[0].onunmute === null) {
+                        localStream.stream.getVideoTracks()[0].onunmute = showMessage('Camera unmuted');
+                    }
+                    localStream.stream.getVideoTracks()[0].enabled = true;
+                }
+            }
+        }
 		startButton = document.getElementById('start-button');
         startButton.started = false;
         startButton.onclick = start;
-        document.getElementById('attach-to-rig').onclick = function (event) {
+        attachButton = document.getElementById('attach-to-rig');
+        attachButton.pressed = false;
+        attachButton.onclick = function (event) {
+            if (startButton.started) {
+                return;
+            }
             if (attachToLG){
                 return;
             }
@@ -129,8 +185,9 @@
 	}
 
 	// Get user media
-	function getLocalUserMedia() {
-        localStream = Erizo.Stream({audio:true, video: true, data: true, attributes: {userid:userid, type: 'video', role:'regular'}});
+	function getLocalUserMedia(media) {
+        localStream = Erizo.Stream({audio:media.audio, video: media.video, data: media.data, attributes: {userid:userid, type: 'video', role:'regular'}});
+        window.stream = localStream;
         localStream.init();
         localStream.addEventListener('access-accepted', function(event) {
             if (!participants[userid]) {
@@ -142,7 +199,8 @@
              connectToRoom();
         });
 		localStream.addEventListener('access-denied', function(event) {
-            
+            getLocalUserMedia({screen: true, audio: false, video: true, data: true});
+            console.log('error :' + event.code);
         });
 	}
     
@@ -224,13 +282,13 @@
     function updateAnalysers(param) {
         var freqByteData = new Uint8Array(param.analyzerNode.frequencyBinCount);
         param.analyzerNode.getByteFrequencyData(freqByteData); 
-        var percent = getAverageVolume(freqByteData.subarray(0,200));
-        var dif = (percent - param.volume)*100/30* (113/100);
+        var percent = getAverageVolume(freqByteData.subarray(0,300));
+        var dif = (percent)* (100/256);
         var meter = param.meter.getContext('2d');
         meter.clearRect(0,0,300,100);
         meter.fillStyle = 'green';
         meter.fillRect(0,0, dif,100);
-        console.log(percent);
+        //console.log(percent);
     }
 
     function convertToMono( input ) {
@@ -329,8 +387,8 @@
         li.currStream = 0;
 		remoteMediaStreams.appendChild(li);
 		mediaElement.onclick();
-        /*if (configuration.participant.userid !== userid) {
-            setTimeout(function () {
+        if (configuration.participant.userid === userid) {
+            //setTimeout(function () {
                 var audioInput = audioContext.createMediaStreamSource(stream);
                 var analyzerNode = audioContext.createAnalyser();
                 convertToMono(audioInput).connect(analyzerNode);
@@ -339,12 +397,10 @@
                 zeroGain.gain.value = 0.0;
                 analyzerNode.connect(zeroGain);
                 zeroGain.connect(audioContext.destination);
-
                 var volume = 150;
-
                 meters.push({meter: volumeMeter, volume: volume, analyzerNode: analyzerNode});
-            }, 2000);
-        };*/
+            //}, 2000);
+        }
 	}
 
     function leaveRoom() {
@@ -376,6 +432,10 @@
             } 
         }
     };
+
+    function disableAttach() {
+        attachButton.style.color = 'rgb(160, 157, 157)';
+    }
 
     function enableStart() {
         ready = true;
@@ -502,7 +562,19 @@
         }
         startButton.started = true;
         disableStart();
+        disableAttach();
         room.publish(localStream);
+        setInterval(function() {
+            localStream.pc.peerConnection.getStats(function(stats){
+                console.log(stats);
+                var r = stats.result()[1];
+                var names = r.names();
+                //for (var i = 0; i < names.length; ++i) {
+                    console.log(r.stat('audioOutputLevel'));
+                //}
+                }, localStream.pc.peerConnection.getLocalStreams()[0].getAudioTracks()[0]
+            );
+        }, 3000);
         if (screenShared) {
             setTimeout(function(){
                 room.publish(screenStream);
@@ -537,6 +609,14 @@
     
     Participant.prototype.addStream = function(stream) {
         this.streams.push(stream); 
+        if (this.visible && this.streams.length > 1) {
+            var caption = this.video.parentNode.querySelector('.video-tile-caption');
+            caption.style.width = '120%';
+            setTimeout(function() {
+                caption.style.width = '';
+            }, 2000);
+            caption.querySelector('.screen-icon').style.color = 'rgb(139, 238, 12)';
+        }
     };
     
     Participant.prototype.removeStream = function (toBeRemoved) {
@@ -549,6 +629,7 @@
             if (toBeRemoved === this.streams[i]) {
                 this.streams.splice(i,1);
                 this.video.replaceStream(this.streams[0].stream);
+                this.video.parentNode.querySelector('.screen-icon').style.color = '';
                 break;
             }
         }
