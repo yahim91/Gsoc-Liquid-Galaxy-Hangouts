@@ -4,7 +4,6 @@
 	participants,
 	userid,
 	screenShareButton,
-    startButton,
     attachButton,
     screenShared,
     screenStream,
@@ -26,9 +25,10 @@
         meters = [];
         audioContext = new AudioContext();
 
-        userid = createId();
-        getLocalUserMedia({audio:true, video:true, data:true});
+        //userid = createId();
+        //getLocalUserMedia({audio:true, video:true, data:true});
         attachToLG = false;
+        document.querySelector("#get-user-box").onkeydown = getUserName;
         /*setInterval(function() {
             for (var i = 0; i < meters.length; i++) {
                 var freqByteData = new Uint8Array(meters[i].analyzerNode.frequencyBinCount);
@@ -164,8 +164,6 @@
                 console.log('denied');
             });
 		};
-		
-		console.log("User Id is : " + userid);
 	}
 
 	function createId() {
@@ -183,6 +181,15 @@
 			}
 		}
 	}
+
+    function getUserName(e) {
+        if (e.keyCode === 13) {
+            console.log(document.querySelector("#get-user-box").value);
+            userid = document.querySelector("#get-user-box").value;
+            e.srcElement.readOnly = true;
+            getLocalUserMedia({audio:true, video:true, data:true});
+        }
+    }
 
 	// Get user media
 	function getLocalUserMedia(media) {
@@ -454,6 +461,7 @@
             room.addEventListener('room-connected', function(roomEvent) {
                 console.log('room-connected');
                 enableStart();
+                console.log(localStream.getID());
                 streams = roomEvent.streams;
                 showMessage('Ready to join!');
             });
@@ -556,7 +564,7 @@
             room.connect();
         });
     };
-	
+    
 	function start() {
         if (!ready || startButton.started) {
             return;
@@ -565,7 +573,8 @@
         disableStart();
         disableAttach();
         room.publish(localStream);
-        setInterval(function() {
+
+        /*setInterval(function() {
             localStream.pc.peerConnection.getStats(function(stats){
                 console.log(stats);
                 var r = stats.result()[1];
@@ -575,7 +584,7 @@
                 //}
                 }, localStream.pc.peerConnection.getLocalStreams()[0].getAudioTracks()[0]
             );
-        }, 3000);
+        }, 3000);*/
         if (screenShared) {
             setTimeout(function(){
                 room.publish(screenStream);

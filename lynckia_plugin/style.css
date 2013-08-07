@@ -205,6 +205,21 @@
     width: 36px;
     border-radius: 5px;
 }
+.user {
+    margin-top: 10px;
+}
+
+.user input {
+    border: 0;
+    box-shadow: none;
+    outline: none;
+    margin: 0;
+    width: 95%;
+    height: 24px;
+    color: #333;
+    font-size: 14px;
+    margin-left: 4px;
+}
 
 #camera {
     position: relative;
