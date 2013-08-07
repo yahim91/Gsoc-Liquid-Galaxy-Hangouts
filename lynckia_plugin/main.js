@@ -548,6 +548,7 @@
                     participants[userid].role = 'master';
                     participants[userid].slaves[remoteUserId] = slave;
                     slave.sendMessage({type: 'request_accepted'});
+                    participants[userid].handleSlaveVideos();
                     showMessage('Node ' + remoteUserId + ' joined!');
                 }
                 console.log('stream subscribed ' + roomEvent.stream.getAttributes().type);
