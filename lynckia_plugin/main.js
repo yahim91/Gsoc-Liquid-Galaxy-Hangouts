@@ -2,12 +2,13 @@
 (function() {
 	var selectedVideo,
 	participants,
-	userid,
+	userid = 'local',
 	screenShareButton,
     attachButton,
     screenShared,
     screenStream,
     localStream,
+    name,
     room,
 	slaves,
     attachToLG,
@@ -131,7 +132,7 @@
             hint.id = 'select';
             selectMaster.appendChild(hint);
             for (var i in room.remoteStreams) {
-                var remoteUserId = room.remoteStreams[i].getAttributes().userid;
+                var remoteUserId = room.remoteStreams[i].getID();
                 var option = document.createElement('option');
                 option.innerHTML = remoteUserId;
                 option.id = 'opt_' + remoteUserId;
@@ -144,7 +145,7 @@
 		selectedVideo = document.getElementById('selectedVideo');
 		screenShareButton = document.getElementById('share-screen-button');
 		screenShareButton.onclick = function() {
-			screenStream = Erizo.Stream({screen: true, video: true, data: true, attributes: {userid:userid, type: 'screen', role:'regular'}});
+			screenStream = Erizo.Stream({screen: true, video: true, data: true, attributes: {userid: localStream.getID(), type: 'screen', role:'regular'}});
             screenStream.init();
             screenStream.addEventListener('access-accepted', function(event) {
                 participants[userid].addStream(screenStream);
@@ -185,16 +186,16 @@
     function getUserName(e) {
         if (e.keyCode === 13) {
             console.log(document.querySelector("#get-user-box").value);
-            userid = document.querySelector("#get-user-box").value;
-            e.srcElement.readOnly = true;
+            name = document.querySelector("#get-user-box").value;
+            e.srcElement.hidden = true;
+            document.querySelector(".message-video").hidden = false;
             getLocalUserMedia({audio:true, video:true, data:true});
         }
     }
 
 	// Get user media
 	function getLocalUserMedia(media) {
-        localStream = Erizo.Stream({audio:media.audio, video: media.video, data: media.data, attributes: {userid:userid, type: 'video', role:'regular'}});
-        window.stream = localStream;
+        localStream = Erizo.Stream({audio:media.audio, video: media.video, data: media.data, attributes: {userid: name, type: 'video', role:'regular'}});
         localStream.init();
         localStream.addEventListener('access-accepted', function(event) {
             if (!participants[userid]) {
@@ -202,12 +203,11 @@
                 participants[userid].addStream(localStream);
                 participants[userid].show({muted: true});
             }
-             console.log("Video stream id is " + JSON.stringify(localStream.getAttributes()));
-             connectToRoom();
+            connectToRoom();
         });
 		localStream.addEventListener('access-denied', function(event) {
-            getLocalUserMedia({screen: true, audio: false, video: true, data: true});
-            console.log('error :' + event.code);
+            //getLocalUserMedia({screen: true, audio: false, video: true, data: true});
+            //console.log('error :' + event.code);
         });
 	}
     
@@ -461,13 +461,13 @@
             room.addEventListener('room-connected', function(roomEvent) {
                 console.log('room-connected');
                 enableStart();
-                console.log(localStream.getID());
                 streams = roomEvent.streams;
                 showMessage('Ready to join!');
             });
             
             room.addEventListener('stream-added', function (roomEvent) {
-                if (userid === roomEvent.stream.getAttributes().userid) {
+                if (localStream.getID() === roomEvent.stream.getID()) {
+                    console.log('added '+ localStream.getID());
                     return;
                 } else {
                     var attributes = roomEvent.stream.attributes;
@@ -488,7 +488,7 @@
                         }
                         var selectMaster = document.getElementById('select-master');
                         var option = document.createElement('option');
-                        var remoteUserId =  roomEvent.stream.getAttributes().userid;
+                        var remoteUserId =  roomEvent.stream.getID();
                         option.innerHTML = remoteUserId;
                         option.id = 'opt_' + remoteUserId;
                         selectMaster.appendChild(option);
@@ -497,29 +497,35 @@
             });
             
             room.addEventListener('stream-removed', function(roomEvent) {
-                if (roomEvent.stream.getAttributes().userid === userid) {
+                if (roomEvent.stream.getID() === localStream.getID()) {
                     return;
                 }
+
                 var attributes = roomEvent.stream.getAttributes();
-                var remoteUserId = attributes.userid;
+                var remoteUserId = roomEvent.stream.getID();
                 if (attributes.role === 'regular') {
-                    if (!participants[remoteUserId]) {
-                        return;
-                    }
-                    if(participants[userid].role === 'slave' && remoteUserId === participants[userid].masterId) {
-                        location.reload();
-                    }
-                    participants[remoteUserId].removeStream(roomEvent.stream);
-                    if (!participants[remoteUserId].hasStreams()) {
-                        delete participants[remoteUserId];
-                        if (attachToLG) {
-                            var selectMaster = document.getElementById('select-master');
-                            var toBeRemoved = selectMaster.querySelector('#opt_' + remoteUserId);
-                            selectMaster.removeChild(selectMaster.querySelector('#opt_' + remoteUserId));
+                    if (attributes.type === 'video') {
+                        
+                        if (!participants[remoteUserId]) {
+                            return;
                         }
+                        if(participants[userid].role === 'slave' && remoteUserId === participants[userid].masterId) {
+                            location.reload();
+                        }
+                        participants[remoteUserId].removeStream(roomEvent.stream);
+                        if (!participants[remoteUserId].hasStreams()) {
+                            delete participants[remoteUserId];
+                            if (attachToLG) {
+                                var selectMaster = document.getElementById('select-master');
+                                var toBeRemoved = selectMaster.querySelector('#opt_' + remoteUserId);
+                                selectMaster.removeChild(selectMaster.querySelector('#opt_' + remoteUserId));
+                            }
+                        }
+                    } else {
+                        participants[attributes.userid].removeStream(roomEvent.stream);
                     }
                 } else {
-                    if (attributes.masterId === userid) {
+                    if (attributes.masterId === localStream.getID()) {
                         participants[userid].removeSlave(remoteUserId);
                     }
                 }
@@ -527,32 +533,35 @@
             
             room.addEventListener('stream-subscribed', function(roomEvent) {
                 var attributes = roomEvent.stream.getAttributes();
-                var remoteUserId = attributes.userid;
                 if (attributes.role === 'regular') {
-                    if (participants[remoteUserId] === undefined) {
-                        participants[remoteUserId] = new Participant({
-                            userid: remoteUserId,
-                            role: 'regular'
-                        });
-                    }
-                    participants[remoteUserId].addStream(roomEvent.stream);
-                    if (((participants[userid].role === 'regular' || participants[userid].role === 'master') ||
+                    var remoteUserId = roomEvent.stream.getID();
+                    if (attributes.type === 'video') {
+                        if (participants[remoteUserId] === undefined) {
+                            participants[remoteUserId] = new Participant({
+                                userid: remoteUserId,
+                                role: 'regular'
+                            });
+                        }
+                        participants[remoteUserId].addStream(roomEvent.stream);
+                        if (((participants[userid].role === 'regular' || participants[userid].role === 'master') ||
                         (participants[userid].idToDisplay === remoteUserId)) && !participants[remoteUserId].visible) {
-                        participants[remoteUserId].show({muted: false});
+                            participants[remoteUserId].show({muted: false});
+                        }
+                        roomEvent.stream.addEventListener('stream-data', function(event){
+                            participants[remoteUserId].onMessage(event.msg);
+                        });
+                        if (participants[userid].role === 'master') {
+                            participants[userid].handleSlaveVideos();
+                        }
+                    } else {
+                        participants[roomEvent.stream.getAttributes().userid].addStream(roomEvent.stream);
                     }
-                    roomEvent.stream.addEventListener('stream-data', function(event){
-                        participants[remoteUserId].onMessage(event.msg);
-                    });
-                    if (participants[userid].role === 'master') {
-                        participants[userid].handleSlaveVideos();
-                    }
-                } else if (attributes.masterId === userid){
+                } else if (attributes.masterId === localStream.getID()){
                     var slave = new Participant({
                         userid: remoteUserId,
                         role: 'slave'
                     });
                     slave.addStream(roomEvent.stream);
-
                     participants[userid].role = 'master';
                     participants[userid].slaves[remoteUserId] = slave;
                     slave.sendMessage({type: 'request_accepted'});
@@ -573,7 +582,6 @@
         disableStart();
         disableAttach();
         room.publish(localStream);
-
         /*setInterval(function() {
             localStream.pc.peerConnection.getStats(function(stats){
                 console.log(stats);

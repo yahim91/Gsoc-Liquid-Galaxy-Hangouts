@@ -210,15 +210,22 @@
 }
 
 .user input {
-    border: 0;
+    position: relative;
+    border: 1px solid #ddd;
+    top: 300px;
     box-shadow: none;
     outline: none;
     margin: 0;
-    width: 95%;
+    width: 400px;
     height: 24px;
     color: #333;
-    font-size: 14px;
-    margin-left: 4px;
+    font-size: 18px;
+    left: 50%;
+    margin-left: -200px;
+}
+
+.user input:focus{
+    border: 1px solid black;
 }
 
 #camera {

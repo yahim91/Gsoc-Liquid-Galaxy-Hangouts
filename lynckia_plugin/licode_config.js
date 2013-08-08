@@ -7,12 +7,12 @@ config.cloudProvider = {};
 config.erizo = {};
 
 config.rabbit.host = 'localhost';
-config.rabbit.port = 5672;
+config.rabbit.port = 5002;
 
 config.nuve.dataBaseURL = "localhost/nuvedb";
-config.nuve.superserviceID = '51ee44206c89c9c70f2572bb';
-config.nuve.superserviceKey = '32512';
-config.nuve.testErizoController = 'localhost:8080';
+config.nuve.superserviceID = '520386d3c9f0bb8018800fba';
+config.nuve.superserviceKey = '23373';
+config.nuve.testErizoController = 'localhost:8085';
 
 //Use undefined to run clients without Stun 
 config.erizoController.stunServerUrl = 'stun:stun.l.google.com:19302';
