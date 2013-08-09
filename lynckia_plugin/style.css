@@ -13,7 +13,7 @@
 	margin-left: -400px;
     z-index: 1;
     margin-top: 25px;
-    background-color: white;
+    background-color: black;
 }
 
 #remoteSlaveVideo {
@@ -89,10 +89,6 @@
 }
 
 
-#start-button {
-    color: rgb(160, 157, 157);
-}
-
 #select-master {
     position:absolute;
     width:100%;
@@ -142,6 +138,10 @@
 
 .video-tile-figure:hover figcaption {
     width: 120%;
+}
+
+.video-tile-figure:hover .video-user-name {
+    height: 16px;
 }
 
 .video-tile-caption img {
@@ -224,8 +224,27 @@
     margin-left: -200px;
 }
 
+.button-disabled {
+    color: rgb(160, 157, 157);
+}
+
 .user input:focus{
     border: 1px solid black;
+}
+
+.video-user-name {
+    position: absolute;
+    height: 0px;
+    overflow: hidden;
+    color: white;
+    z-index: 10;
+    bottom: 0px;
+    width: 100%;
+    font-size:15px;
+    text-align: center;
+    opacity: 0.7;
+    background-color: black;
+    -webkit-transition: height 0.5s;
 }
 
 #camera {

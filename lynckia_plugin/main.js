@@ -11,7 +11,6 @@
     name,
     room,
 	slaves,
-    attachToLG,
     ready,
     streams,
 	slaveNum,
@@ -28,7 +27,6 @@
 
         //userid = createId();
         //getLocalUserMedia({audio:true, video:true, data:true});
-        attachToLG = false;
         document.querySelector("#get-user-box").onkeydown = getUserName;
         /*setInterval(function() {
             for (var i = 0; i < meters.length; i++) {
@@ -81,9 +79,12 @@
                 muteCamera.title = "Turn camera on";
                 if (localStream) {
                     if (localStream.stream.getVideoTracks()[0].onmute === null) {
-                        localStream.stream.getVideoTracks()[0].onmute = showMessage('Camera muted');
+                        localStream.stream.getVideoTracks()[0].onmute = showMessage('Camera off');
                     }
                     localStream.stream.getVideoTracks()[0].enabled = false;
+                }
+                if (selectedVideo.videoId === userid) {
+                    participants[userid].video.onclick();
                 }
             } else {
                 muteCamera.muted = false;
@@ -91,7 +92,7 @@
                 muteCamera.title = "Turn camera off";
                 if (localStream) {
                     if (localStream.stream.getVideoTracks()[0].onunmute === null) {
-                        localStream.stream.getVideoTracks()[0].onunmute = showMessage('Camera unmuted');
+                        localStream.stream.getVideoTracks()[0].onunmute = showMessage('Camera on');
                     }
                     localStream.stream.getVideoTracks()[0].enabled = true;
                 }
@@ -102,13 +103,16 @@
         startButton.onclick = start;
         attachButton = document.getElementById('attach-to-rig');
         attachButton.pressed = false;
+        attachButton.enabled = false;
         attachButton.onclick = function (event) {
-            if (startButton.started) {
+            if (!attachButton.enabled) {
                 return;
             }
-            if (attachToLG){
-                return;
-            }
+            disableButton(attachButton, function(){
+                attachButton.enabled = false;
+                attachButton.pressed = true;
+            });
+
             var selectMaster = document.createElement('select');
             selectMaster.id = 'select-master';
             selectMaster.onchange = function() {
@@ -139,12 +143,15 @@
                 selectMaster.appendChild(option);
             }
             event.srcElement.parentNode.appendChild(selectMaster);
-            attachToLG = true;
         };
 		
 		selectedVideo = document.getElementById('selectedVideo');
 		screenShareButton = document.getElementById('share-screen-button');
+        screenShareButton.enabled = false;
 		screenShareButton.onclick = function() {
+            if (!screenShareButton.enabled) {
+                return;
+            }
 			screenStream = Erizo.Stream({screen: true, video: true, data: true, attributes: {userid: localStream.getID(), type: 'screen', role:'regular'}});
             screenStream.init();
             screenStream.addEventListener('access-accepted', function(event) {
@@ -235,7 +242,7 @@
     }
     
     function removeVideoTag(stream) {
-        var streamId = stream.getAttributes().userid;
+        var streamId = stream.getID();
         var toBeRemoved = document.getElementById(streamId);
 		toBeRemoved.parentNode.removeChild(toBeRemoved);
 		if (selectedVideo.videoId === streamId) {
@@ -344,6 +351,7 @@
 				: webkitURL.createObjectURL(stream);
 		mediaElement.className = "tile-video";
 		mediaElement.stream = stream;
+        mediaElement.title = configuration.participant.userid;
 		mediaElement.autoplay = true;
 		mediaElement.controls = false;
 		mediaElement.muted = configuration.muted;
@@ -366,7 +374,6 @@
 					: webkitURL.createObjectURL(_stream);
             mediaElement.muted = muteButton.muted;
 			mediaElement.stream = _stream;
-
 		}
  
         muteButton.onclick = function () {
@@ -380,11 +387,22 @@
             muteButton.muted = mediaElement.muted;
         }
         configuration.participant.video = mediaElement;
-        volumeMeter = document.createElement('canvas');
+        /*volumeMeter = document.createElement('canvas');
         volumeMeter.className = 'volume-meter';
-        volumeMeter.id = 'meter' + configuration.participant.userid;
+        volumeMeter.id = 'meter' + configuration.participant.userid;*/
         container.appendChild(mediaElement);
-        container.appendChild(volumeMeter);
+        var user_name = document.createElement('div');
+        user_name.className = 'video-user-name';
+        if (configuration.participant.userid === 'local') {
+            user_name.innerHTML = localStream.attributes.userid;
+        } else {
+            user_name.innerHTML = configuration.participant.streams[0].getID();
+        }
+        configuration.participant.changeName = function(name) {
+            user_name.innerHTML = name;
+        }
+        //container.appendChild(volumeMeter);
+        container.appendChild(user_name);
         container.appendChild(caption);
 		var remoteMediaStreams = document.getElementById('remote-videos');
         var li = document.createElement('li');
@@ -394,7 +412,7 @@
         li.currStream = 0;
 		remoteMediaStreams.appendChild(li);
 		mediaElement.onclick();
-        if (configuration.participant.userid === userid) {
+        /*if (configuration.participant.userid === userid) {
             //setTimeout(function () {
                 var audioInput = audioContext.createMediaStreamSource(stream);
                 var analyzerNode = audioContext.createAnalyser();
@@ -407,7 +425,7 @@
                 var volume = 150;
                 meters.push({meter: volumeMeter, volume: volume, analyzerNode: analyzerNode});
             //}, 2000);
-        }
+        }*/
 	}
 
     function leaveRoom() {
@@ -440,27 +458,33 @@
         }
     };
 
-    function disableAttach() {
-        attachButton.style.color = 'rgb(160, 157, 157)';
+
+    function enableButton(button, callback) {
+        if (button.classList.contains('button-disabled')) {
+            button.classList.toggle('button-disabled');
+        }
+        callback();
     }
 
-    function enableStart() {
-        ready = true;
-        startButton.style.color = 'black';
-    }
-    function disableStart() {
-        ready = false;
-        startButton.style.color = 'rgb(160, 157, 157)';
+    function disableButton(button, callback) {
+        if (!button.classList.contains('button-disabled')) {
+            button.classList.toggle('button-disabled');
+        }
+        callback();
     }
 
-    
+       
     function connectToRoom() {
         createToken(function(token){
             console.log(token);
             room = Erizo.Room({'token': token});
             room.addEventListener('room-connected', function(roomEvent) {
                 console.log('room-connected');
-                enableStart();
+                enableButton(startButton, function(){
+                    ready = true;});
+                enableButton(attachButton, function() {
+                    attachButton.enabled = true;
+                });
                 streams = roomEvent.streams;
                 showMessage('Ready to join!');
             });
@@ -468,10 +492,14 @@
             room.addEventListener('stream-added', function (roomEvent) {
                 if (localStream.getID() === roomEvent.stream.getID()) {
                     console.log('added '+ localStream.getID());
+                    enableButton(screenShareButton, function(){
+                        screenShareButton.enabled = true;
+                    });
+                    participants[userid].changeName(localStream.getID());
                     return;
                 } else {
                     var attributes = roomEvent.stream.attributes;
-                    if (attributes.role === 'slave' && attributes.masterId !== userid) {
+                    if (attributes.role === 'slave' && attributes.masterId !== localStream.getID()) {
                         return;
                     }
                     if (startButton.started) {
@@ -482,7 +510,7 @@
                         streams.push(roomEvent.stream);
                     }
 
-                    if (attachToLG) {
+                    if (attachButton.pressed) {
                         if (attributes.type === 'screen') {
                             return;
                         }
@@ -515,7 +543,7 @@
                         participants[remoteUserId].removeStream(roomEvent.stream);
                         if (!participants[remoteUserId].hasStreams()) {
                             delete participants[remoteUserId];
-                            if (attachToLG) {
+                            if (attachButton.pressed) {
                                 var selectMaster = document.getElementById('select-master');
                                 var toBeRemoved = selectMaster.querySelector('#opt_' + remoteUserId);
                                 selectMaster.removeChild(selectMaster.querySelector('#opt_' + remoteUserId));
@@ -533,8 +561,8 @@
             
             room.addEventListener('stream-subscribed', function(roomEvent) {
                 var attributes = roomEvent.stream.getAttributes();
+                var remoteUserId = roomEvent.stream.getID();
                 if (attributes.role === 'regular') {
-                    var remoteUserId = roomEvent.stream.getID();
                     if (attributes.type === 'video') {
                         if (participants[remoteUserId] === undefined) {
                             participants[remoteUserId] = new Participant({
@@ -578,28 +606,14 @@
         if (!ready || startButton.started) {
             return;
         }
-        startButton.started = true;
-        disableStart();
-        disableAttach();
+        disableButton(startButton, function(){
+            startButton.started = true;
+        });
+        disableButton(attachButton, function() {
+            attachButton.enabled = false;
+        });
         room.publish(localStream);
-        /*setInterval(function() {
-            localStream.pc.peerConnection.getStats(function(stats){
-                console.log(stats);
-                var r = stats.result()[1];
-                var names = r.names();
-                //for (var i = 0; i < names.length; ++i) {
-                    console.log(r.stat('audioOutputLevel'));
-                //}
-                }, localStream.pc.peerConnection.getLocalStreams()[0].getAudioTracks()[0]
-            );
-        }, 3000);*/
-        if (screenShared) {
-            setTimeout(function(){
-                room.publish(screenStream);
-                },
-                3000
-            );
-        }
+        
         if (localStream.attributes.role === 'regular') {
             subscribeToStreams(streams);
         } else {
@@ -662,7 +676,7 @@
     };
 
     Participant.prototype.sendMessage = function(message) {
-        localStream.sendData({from: userid, to: this.userid, message: message});
+        localStream.sendData({from: localStream.getID(), to: this.userid, message: message});
     };
 
     Participant.prototype.removeSlave = function (slaveId) {
@@ -674,7 +688,7 @@
     };
     
     Participant.prototype.onMessage = function(data) {
-        if (data.to !== userid) {
+        if (data.to !== localStream.getID()) {
             return;
         }
         var message = data.message;
