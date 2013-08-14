@@ -390,8 +390,13 @@
 					: webkitURL.createObjectURL(mediaElement.stream);
 			selectedVideo.videoId = configuration.participant.userid;
 			selectedVideo.autoplay = true;
-			selectedVideo.muted = configuration.muted;
+			selectedVideo.muted = true;
 			selectedVideo.play();
+
+            mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? mediElement.stream
+				: webkitURL.createObjectURL(mediaElement.stream);
+            mediaElement.muted = muteButton.muted;
+			mediaElement.play();
 		};
 		mediaElement.replaceStream = function(_stream) {
             if (selectedVideo.videoId === configuration.participant.userid) {
@@ -707,7 +712,7 @@
         this.streams.push(stream); 
         if (this.visible && this.streams.length > 1) {
             var caption = this.video.parentNode.querySelector('.video-tile-caption');
-            caption.style.width = '120%';
+            caption.style.width = '113%';
             setTimeout(function() {
                 caption.style.width = '';
             }, 2000);
