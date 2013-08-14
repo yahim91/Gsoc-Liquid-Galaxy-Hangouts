@@ -15,7 +15,9 @@
     streams,
 	slaveNum,
     meters,
-    audioContext;
+    audioContext,
+    fullScreenCanvas,
+    fullScreenContext;
     	
 
 	function initialize() {
@@ -25,8 +27,14 @@
         meters = [];
         audioContext = new AudioContext();
 
-        //userid = createId();
-        //getLocalUserMedia({audio:true, video:true, data:true});
+
+        document.onwebkitfullscreenchange = function() {
+            if (document.height > document.width) {
+                if (!document.webkitIsFullScreen) {
+                    selectedVideo.style.webkitTransform='rotate(-90deg)';
+                }
+            }
+        }
         document.querySelector("#get-user-box").onkeydown = getUserName;
         document.querySelector('.text-area').onkeydown = sendChatMessage;
         /*setInterval(function() {
@@ -147,6 +155,13 @@
         };
 		
 		selectedVideo = document.getElementById('selectedVideo');
+        selectedVideo.onclick = function () {
+            if (document.width < document.height) {
+                selectedVideo.style.webkitTransform='rotate(-90deg) scaleX(1.8) scaleY(1.75)';
+            }
+            selectedVideo.webkitRequestFullScreen();
+            //document.querySelector(".central-video-fullscreen").webkitRequestFullScreen();
+        }
 		screenShareButton = document.getElementById('share-screen-button');
         screenShareButton.enabled = false;
 		screenShareButton.onclick = function() {
@@ -203,7 +218,6 @@
     
     function sendChatMessage(e) {
         if (e.keyCode === 13) {
-            var conv = document.querySelector('.conversation');
             var message = document.querySelector(".text-area").value;
             //message = message.substring(0, message.length - 2);
             document.querySelector(".text-area").value = '';
@@ -212,8 +226,7 @@
             }
 
             localStream.sendData({from: localStream.getID(), message: {type: 'chat' , load: message}});
-            document.querySelector('.conversation').appendChild(createConversationItem(localStream.getID(), message));
-            conv.scrollTop = conv.scrollHeight;
+            addConversationItem(createConversationItem(localStream.getID() || localStream.attributes.userid, message, 'message'));
         }
     }
 
@@ -558,6 +571,7 @@
                         }
                         participants[remoteUserId].removeStream(roomEvent.stream);
                         if (!participants[remoteUserId].hasStreams()) {
+                            addConversationItem(createConversationItem(remoteUserId, 'left the room', 'notification'));
                             delete participants[remoteUserId];
                             if (attachButton.pressed) {
                                 var selectMaster = document.getElementById('select-master');
@@ -585,6 +599,7 @@
                                 userid: remoteUserId,
                                 role: 'regular'
                             });
+                            addConversationItem(createConversationItem(remoteUserId, 'joined the room', 'notification'));
                         }
                         participants[remoteUserId].addStream(roomEvent.stream);
                         if (((participants[userid].role === 'regular' || participants[userid].role === 'master') ||
@@ -638,12 +653,21 @@
         }
     };
 
-    function createConversationItem(from, message) {
+    function createConversationItem(from, message, type) {
+        if (message[0] === '\n') {
+            message = message.substring(1, message.length);
+        }
         var conv_item = document.createElement('div');
         var conv_item_user = document.createElement('div');
         var conv_item_message = document.createElement('div');
         var span_message = document.createElement('span');
         var span_user = document.createElement('span');
+        if (type == 'notification') {
+            span_message.style.color = 'rgb(156, 156, 156)';
+            span_user.style.color = 'rgb(156, 156, 156)';
+        }
+        span_user.style.marginLeft = '4px';
+        span_message.style.marginLeft = '4px';
         span_message.innerHTML = message;
         span_user.innerHTML = from + ':';
         conv_item_message.className = 'conv-item-message';
@@ -655,6 +679,13 @@
         conv_item.appendChild(conv_item_message);
         return conv_item;
     }
+
+    function addConversationItem(item) {
+        var conv = document.querySelector('.conversation');
+        conv.appendChild(item);
+        conv.scrollTop = conv.scrollHeight;
+    }
+
     function Participant(participantConfig) {
         this.streams = [];
         this.slaves = {};
@@ -734,9 +765,8 @@
             participants[userid].idToDisplay = message.idToDisplay;
             room.subscribe(toBeDisplayed);
         } else if (message.type == 'chat') {
-            var objDiv = document.querySelector('.conversation');
-            objDiv.appendChild(createConversationItem(data.from, message.load));
-            objDiv.scrollTop = objDiv.scrollHeight;
+            var item = createConversationItem(data.from, message.load, 'message');
+            addConversationItem(item);
         }
     };
     Participant.prototype.handleSlaveVideos = function () {

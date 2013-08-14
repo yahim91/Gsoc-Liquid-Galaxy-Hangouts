@@ -1,19 +1,73 @@
-#selectedVideoSection {
-	display: block;
-	height: 70%;
+@media only screen and (orientation:landscape) {
+
+    #selectedVideo {
+        position: absolute;
+        height: 452px;
+        width: 800px;
+        display: block;
+        border: 2px solid #777;
+        left: 0;
+        right: 0;
+        top: 25px;
+        margin: auto;
+        z-index: 1;
+        background-color: black;
+    }
+
+    .galaxy-app {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        top: 0px;
+        left: 0px;
+        position: absolute;
+    }
+
+    #selectedVideoSection {
+	    display: block;
+        position: relative;
+        width: 100%;
+	    height: 100%;
+    }
 }
 
-#selectedVideo {
-	position: relative;
-	height: 600px;
-	width: 800px;
-	display: block;
-	border: 2px solid #777;
-	left: 50%;
-	margin-left: -400px;
-    z-index: 1;
-    margin-top: 25px;
-    background-color: black;
+@media only screen and (orientation:portrait) {
+
+    #selectedVideo {
+        position: absolute;
+        height: 452px;
+        width: 800px;
+        display: block;
+        border: 2px solid #777;
+        left: 0;
+        right: 0;
+        top: 200px;
+        margin: auto;
+        z-index: 1;
+        background-color: black;
+        -webkit-transform: rotate(-90deg);
+    }
+
+    .galaxy-app {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        top: 0px;
+        left: 0px;
+        position: absolute;
+    }
+
+    #selectedVideoSection {
+	    display: block;
+        position: relative;
+        width: 100%;
+	    height: 100%;
+    }
+}
+
+.message-video {
+    width: 100%;
+    height: 100%;
 }
 
 #remoteSlaveVideo {
@@ -34,10 +88,10 @@
 }
 
 .right-sidebar {
-	position: fixed;
+	position: absolute;
 	top :0;
 	right: 0;
-	width: 205px;
+	width: 180px;
 	height: 100%;
 	background-color: #fbfbf9;
 	border-left: 1px solid #ddd;
@@ -58,7 +112,7 @@
 	position: fixed;
 	top: 0;
 	left: 0;
-	width: 190px;
+	width: 245px;
 	height: 100%;
 	background-color: white;
 }
@@ -95,15 +149,17 @@
 }
 
 .remote-grid {
+    position: relative;
     margin: 0 auto;
     width: 100%;
     height:100%;
-    overflow-y: scroll;
+    overflow-y: auto;
+    -webkit-padding-start: 0px;
 }
  
 .remote-grid li {
     display: block;
-    margin: 0;
+    margin-left: 25px;
     position: relative;
     
 }
@@ -165,15 +221,16 @@
 .notification {
     width: 800px;
     height: 30px;
-    left: 50%;
-	margin-left: -400px;
+    right: 0;
+    left: 0;
+    margin: auto;
     opacity: 0.7;
 
 
-    top: 595px;
+    top: 422px;
     border: 2px solid;
     color: #fff;
-    position: fixed;
+    position: absolute;
     text-shadow: 0 1px 0 rgba(0,0,0,.5);
     background-color: black;
     border-color: #A0A3A5;
@@ -181,7 +238,7 @@
 }
 
 .pop {
-    top: 630px;
+    top: 480px;
     -webkit-transition: 1s;
 }
 
@@ -207,21 +264,24 @@
 }
 .user {
     margin-top: 10px;
+    width: 100%;
+    height: 100%;
 }
 
 .user input {
-    position: relative;
+    position: absolute;
     border: 1px solid #ddd;
     top: 300px;
+    right: 0px;
+    left: 0px;
+
     box-shadow: none;
     outline: none;
-    margin: 0;
-    width: 400px;
+    margin: auto;
+    width: 40%;
     height: 24px;
     color: #333;
     font-size: 18px;
-    left: 50%;
-    margin-left: -200px;
 }
 
 .button-disabled {
@@ -288,6 +348,7 @@
     outline: none;
     min-height: 16px;
     font-size: 11px;
+    width: 210px;
     resize: none;
     overflow: hidden;
 }
@@ -309,7 +370,7 @@
 }
 
 .conv-item-message {
-    margin-left: 40px;
+    //margin-left: 40px;
     display: block;
     text-align: left;
     word-wrap: break-word;
