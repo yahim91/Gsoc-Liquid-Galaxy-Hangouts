@@ -32,6 +32,15 @@
             if (document.height > document.width) {
                 if (!document.webkitIsFullScreen) {
                     selectedVideo.style.webkitTransform='rotate(-90deg)';
+                    selectedVideo.style.top = '';
+                    selectedVideo.style.bottom = '';
+                    selectedVideo.style.left = '';
+                }
+            } else {
+                if (!document.webkitIsFullScreen) {
+                    selectedVideo.style.top = '';
+                    selectedVideo.style.height = '';
+                    selectedVideo.style.width = '';
                 }
             }
         }
@@ -154,12 +163,21 @@
             event.srcElement.parentNode.appendChild(selectMaster);
         };
 		
-		selectedVideo = document.getElementById('selectedVideo');
+		selectedVideo = document.querySelector('.selectedVideo');
         selectedVideo.onclick = function () {
-            if (document.width < document.height) {
-                selectedVideo.style.webkitTransform='rotate(-90deg) scaleX(1.8) scaleY(1.75)';
+            if (screen.width < screen.height) {
+                selectedVideo.style.webkitTransform='rotate(-90deg) scaleY(' + (screen.width / selectedVideo.clientHeight) + ') ' 
+                + ' scaleX(' + (screen.height / selectedVideo.clientWidth) + ')';
+                selectedVideo.style.webkitTransformOrigin='center';
+                selectedVideo.style.top = '0px';
+                selectedVideo.style.bottom = '0px';
+                selectedVideo.style.left='-18px';
+            } else {
+                selectedVideo.style.width = screen.width;
+                selectedVideo.style.height = screen.height;
+                selectedVideo.style.top = '0px';
             }
-            selectedVideo.webkitRequestFullScreen();
+            document.body.webkitRequestFullScreen();
             //document.querySelector(".central-video-fullscreen").webkitRequestFullScreen();
         }
 		screenShareButton = document.getElementById('share-screen-button');
