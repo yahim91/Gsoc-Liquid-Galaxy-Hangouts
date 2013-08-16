@@ -171,7 +171,7 @@
                 selectedVideo.style.webkitTransformOrigin='center';
                 selectedVideo.style.top = '0px';
                 selectedVideo.style.bottom = '0px';
-                selectedVideo.style.left='-18px';
+                selectedVideo.style.left='0px';
             } else {
                 selectedVideo.style.width = screen.width;
                 selectedVideo.style.height = screen.height;

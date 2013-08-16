@@ -72,7 +72,7 @@ html, body {
         margin-left: 25px;
     }
 
-    user input {
+    .user input {
         position: absolute;
         border: 1px solid #ddd;
         top: 300px;
@@ -87,23 +87,41 @@ html, body {
         color: #333;
         font-size: 18px;
     }
+
+    .notification {
+        width: 800px;
+        height: 30px;
+        right: 0;
+        left: 0;
+        margin: auto;
+        opacity: 0.7;
+        top: 422px;
+        border: 2px solid;
+        color: #fff;
+        position: absolute;
+        text-shadow: 0 1px 0 rgba(0,0,0,.5);
+        background-color: black;
+        border-color: #A0A3A5;
+        -webkit-transition: 1s;
+    }
 }
 
 @media only screen and (orientation:portrait) {
 
     .selectedVideo {
         position: absolute;
-        height: 452px;
-        width: 80%;
+        height: 394px;
+        width: 700;
         display: block;
         border: 2px solid #777;
-        left: 0;
+        left: -250;
         right: 0;
-        top: 200px;
+        top: 180px;
         margin: auto;
         z-index: 11;
         background-color: black;
         -webkit-transform: rotate(-90deg);
+        -webkit-transform-origin: center;
     }
 
     .galaxy-app {
@@ -121,6 +139,7 @@ html, body {
         width: 100%;
 	    height: 100%;
     }
+
     .right-sidebar {
         position: absolute;
         top :0;
@@ -173,6 +192,25 @@ html, body {
         height: 24px;
         color: #333;
         font-size: 18px;
+    }
+
+    .notification {
+        width: 300px;
+        height: 30px;
+        right: 250px;
+        left: 0;
+        margin: auto;
+        opacity: 0.7;
+
+
+        top: 422px;
+        border: 2px solid;
+        color: #fff;
+        position: absolute;
+        text-shadow: 0 1px 0 rgba(0,0,0,.5);
+        background-color: black;
+        border-color: #A0A3A5;
+        -webkit-transition: 1s;
     }
     
 }
@@ -331,7 +369,7 @@ html, body {
 .mute {
     margin-top: 5%;
 }
-
+/*
 .notification {
     width: 800px;
     height: 30px;
@@ -350,7 +388,7 @@ html, body {
     border-color: #A0A3A5;
     -webkit-transition: 1s;
 }
-
+*/
 
 
 .pop {
