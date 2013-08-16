@@ -322,7 +322,7 @@ html, body {
 }
 
 .tile-video {
-	position: relative;
+	position: absolute;
     width: 100%;
     height: 100%;
     background-color: black;
@@ -330,7 +330,27 @@ html, body {
     z-index: 10;
 }
 
+.rotated-tile-video {
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    margin: auto;
+    width: 125px;
+    height: 220px;
+    -webkit-transform-origin: center;
+    -webkit-transform: rotate(-90deg);
+}
+
+.rotated-central-video {
+    -webkit-transform: rotate(-90deg) scale(0.8);
+    -webkit-transform-origin: 50% 50%;
+    bottom: 0;
+    top: 0;
+}
+
 .video-tile-figure {
+    height: 100%;
     width: 100%;
     display: block;
 }

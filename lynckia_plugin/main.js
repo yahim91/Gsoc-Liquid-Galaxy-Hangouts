@@ -17,7 +17,8 @@
     meters,
     audioContext,
     fullScreenCanvas,
-    fullScreenContext;
+    fullScreenContext,
+    orientation;
     	
 
 	function initialize() {
@@ -26,6 +27,7 @@
         participants = {};
         meters = [];
         audioContext = new AudioContext();
+        orientation = screen.width > screen.height ? 'landscape' : 'portrait';
 
 
         document.onwebkitfullscreenchange = function() {
@@ -186,7 +188,8 @@
             if (!screenShareButton.enabled) {
                 return;
             }
-			screenStream = Erizo.Stream({screen: true, video: true, data: true, attributes: {userid: localStream.getID(), type: 'screen', role:'regular'}});
+			screenStream = Erizo.Stream({screen: true, video: true, data: true, attributes: {userid: localStream.getID(), type: 'screen', role:'regular',
+                                            orientation: orientation}});
             screenStream.init();
             screenStream.addEventListener('access-accepted', function(event) {
                 participants[userid].addStream(screenStream);
@@ -250,7 +253,8 @@
 
 	// Get user media
 	function getLocalUserMedia(media) {
-        localStream = Erizo.Stream({audio:media.audio, video: media.video, data: media.data, attributes: {userid: name, type: 'video', role:'regular'}});
+        localStream = Erizo.Stream({audio:media.audio, video: media.video, data: media.data, attributes: {userid: name, type: 'video', role:'regular', 
+                                    orientation: orientation}});
         localStream.init();
         localStream.addEventListener('access-accepted', function(event) {
             if (!participants[userid]) {
@@ -395,9 +399,13 @@
         var stream = configuration.participant.streams[0].stream;
         
 		var mediaElement = document.createElement('video');
+        mediaElement.orientation = configuration.participant.streams[0].attributes.orientation;
 		mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream
 				: webkitURL.createObjectURL(stream);
 		mediaElement.className = "tile-video";
+        if (mediaElement.orientation === 'portrait') {
+            mediaElement.classList.add('rotated-tile-video');
+        }
 		mediaElement.stream = stream;
 		mediaElement.autoplay = true;
 		mediaElement.controls = false;
@@ -415,6 +423,13 @@
 				: webkitURL.createObjectURL(mediaElement.stream);
             mediaElement.muted = muteButton.muted;
 			mediaElement.play();
+            if (orientation === 'landscape') {
+                if (mediaElement.orientation == 'portrait' && !selectedVideo.classList.contains('rotated-central-video')) {
+                    selectedVideo.classList.add('rotated-central-video');
+                } else if (mediaElement.orientation == 'landscape' && selectedVideo.classList.contains('rotated-central-video')) {
+                    selectedVideo.classList.toggle('rotated-central-video');
+                }
+            }
 		};
 		mediaElement.replaceStream = function(_stream) {
             if (selectedVideo.videoId === configuration.participant.userid) {
