@@ -175,9 +175,15 @@
                 selectedVideo.style.bottom = '0px';
                 selectedVideo.style.left='0px';
             } else {
-                selectedVideo.style.width = screen.width;
-                selectedVideo.style.height = screen.height;
-                selectedVideo.style.top = '0px';
+                if (selectedVideo.orientation === 'portrait') {
+                    selectedVideo.style.width = screen.height;
+                    selectedVideo.style.height = screen.width;
+                    selectedVideo.style.webkitTransform = selectedVideo.style.webkitTransform.split(' ')[0];
+                } else {
+                    selectedVideo.style.width = screen.width;
+                    selectedVideo.style.height = screen.height;
+                    selectedVideo.style.top = '0px';
+                }
             }
             document.body.webkitRequestFullScreen();
             //document.querySelector(".central-video-fullscreen").webkitRequestFullScreen();
@@ -394,17 +400,24 @@
             configuration.participant.video.replaceStream(nextStream.stream);
         }
 
+        var rotateButton = document.createElement('div');
+        rotateButton.innerHTML = 'R';
+        rotateButton.className = 'screen-icon';
+
         caption.appendChild(muteButton);
         caption.appendChild(screenIcon);
+        caption.appendChild(rotateButton);
         var stream = configuration.participant.streams[0].stream;
         
 		var mediaElement = document.createElement('video');
+        mediaElement.rotation = 0;
         mediaElement.orientation = configuration.participant.streams[0].attributes.orientation;
 		mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream
 				: webkitURL.createObjectURL(stream);
 		mediaElement.className = "tile-video";
         if (mediaElement.orientation === 'portrait') {
             mediaElement.classList.add('rotated-tile-video');
+            mediaElement.rotation = -90;
         }
 		mediaElement.stream = stream;
 		mediaElement.autoplay = true;
@@ -424,10 +437,13 @@
             mediaElement.muted = muteButton.muted;
 			mediaElement.play();
             if (orientation === 'landscape') {
+                selectedVideo.orientation = mediaElement.orientation;
                 if (mediaElement.orientation == 'portrait' && !selectedVideo.classList.contains('rotated-central-video')) {
                     selectedVideo.classList.add('rotated-central-video');
+                    selectedVideo.style.webkitTransform = 'rotate(' + mediaElement.rotation + 'deg) scale(0.8)';
                 } else if (mediaElement.orientation == 'landscape' && selectedVideo.classList.contains('rotated-central-video')) {
                     selectedVideo.classList.toggle('rotated-central-video');
+                    selectedVideo.style.webkitTransform = 'rotate(' + mediaElement.rotation + 'deg)';
                 }
             }
 		};
@@ -442,6 +458,27 @@
             mediaElement.muted = muteButton.muted;
 			mediaElement.stream = _stream;
 		}
+        rotateButton.onclick = function () {
+            mediaElement.rotation += 90;
+            if (mediaElement.rotation === 360) {
+                mediaElement.rotation = 0;
+            }
+            if (mediaElement.rotation == 0 || mediaElement.rotation == 180) {
+                mediaElement.orientation = 'landscape';
+            } else {
+                mediaElement.orientation = 'portrait';
+            }
+            if ((mediaElement.rotation === 90 || mediaElement.rotation === 270) && !mediaElement.classList.contains('rotated-tile-video')) {
+                mediaElement.classList.add('rotated-tile-video');
+            } else if ((mediaElement.rotation === 0 || mediaElement.rotation === 180) && mediaElement.classList.contains('rotated-tile-video')) {
+                mediaElement.classList.remove('rotated-tile-video');
+            }
+            mediaElement.style.webkitTransform = 'rotate(' + mediaElement.rotation + 'deg)';
+           
+			if(selectedVideo.videoId === configuration.participant.userid) {
+                mediaElement.onclick();
+            }
+        }
  
         muteButton.onclick = function () {
             if (mediaElement.muted === false) {

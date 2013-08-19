@@ -343,7 +343,7 @@ html, body {
 }
 
 .rotated-central-video {
-    -webkit-transform: rotate(-90deg) scale(0.8);
+    -webkit-transform: scale(0.8);
     -webkit-transform-origin: 50% 50%;
     bottom: 0;
     top: 0;
