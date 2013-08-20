@@ -28,15 +28,26 @@
         meters = [];
         audioContext = new AudioContext();
         orientation = screen.width > screen.height ? 'landscape' : 'portrait';
+        document.querySelector('#go-button').onclick = function(){
+            gotUserName();
+        }
 
 
         document.onwebkitfullscreenchange = function() {
             if (document.height > document.width) {
                 if (!document.webkitIsFullScreen) {
-                    selectedVideo.style.webkitTransform='rotate(-90deg)';
-                    selectedVideo.style.top = '';
-                    selectedVideo.style.bottom = '';
-                    selectedVideo.style.left = '';
+                    if (selectedVideo.orientation === 'portrait'){ 
+                        selectedVideo.style.webkitTransform = selectedVideo.style.webkitTransform.split(' ')[0];
+                        selectedVideo.style.top = '';
+                        selectedVideo.style.bottom = '';
+                        selectedVideo.style.left = '';
+                    } else {
+                        selectedVideo.style.webkitTransform += 'scale(0.7)';
+                        selectedVideo.style.top = '';
+                        selectedVideo.style.left = '';
+                        selectedVideo.style.width = '';
+                        selectedVideo.style.height = '';
+                    }
                 }
             } else {
                 if (!document.webkitIsFullScreen) {
@@ -168,12 +179,20 @@
 		selectedVideo = document.querySelector('.selectedVideo');
         selectedVideo.onclick = function () {
             if (screen.width < screen.height) {
-                selectedVideo.style.webkitTransform='rotate(-90deg) scaleY(' + (screen.width / selectedVideo.clientHeight) + ') ' 
-                + ' scaleX(' + (screen.height / selectedVideo.clientWidth) + ')';
-                selectedVideo.style.webkitTransformOrigin='center';
-                selectedVideo.style.top = '0px';
-                selectedVideo.style.bottom = '0px';
-                selectedVideo.style.left='0px';
+                if (selectedVideo.orientation === 'portrait') {
+                    selectedVideo.style.webkitTransform = selectedVideo.style.webkitTransform.split(" ")[0] + 'scaleY(' + (screen.width / selectedVideo.clientHeight) + ') ' 
+                    + ' scaleX(' + (screen.height / selectedVideo.clientWidth) + ')';
+                    selectedVideo.style.webkitTransformOrigin = 'center';
+                    selectedVideo.style.top = '0px';
+                    selectedVideo.style.bottom = '0px';
+                    selectedVideo.style.left='0px';
+                } else {
+                    selectedVideo.style.width = screen.width;
+                    selectedVideo.style.height = screen.height;
+                    selectedVideo.style.webkitTransform = selectedVideo.style.webkitTransform.split(' ')[0];
+                    selectedVideo.style.top = '0px';
+                    selectedVideo.style.left = '0px';
+                }
             } else {
                 if (selectedVideo.orientation === 'portrait') {
                     selectedVideo.style.width = screen.height;
@@ -235,12 +254,15 @@
 
     function getUserName(e) {
         if (e.keyCode === 13) {
-            console.log(document.querySelector("#get-user-box").value);
-            name = document.querySelector("#get-user-box").value;
-            e.srcElement.hidden = true;
-            document.querySelector(".message-video").hidden = false;
-            getLocalUserMedia({audio:true, video:true, data:true});
+           //gotUserName(); 
         }
+    }
+
+    function gotUserName() {
+        name = document.querySelector("#get-user-box").value;
+        document.querySelector(".user").hidden = true;
+        document.querySelector(".message-video").hidden = false;
+        getLocalUserMedia({audio:true, video:true, data:true});
     }
     
     function sendChatMessage(e) {
@@ -436,13 +458,20 @@
 				: webkitURL.createObjectURL(mediaElement.stream);
             mediaElement.muted = muteButton.muted;
 			mediaElement.play();
+
+            selectedVideo.orientation = mediaElement.orientation;
             if (orientation === 'landscape') {
-                selectedVideo.orientation = mediaElement.orientation;
-                if (mediaElement.orientation == 'portrait' && !selectedVideo.classList.contains('rotated-central-video')) {
-                    selectedVideo.classList.add('rotated-central-video');
+                if (mediaElement.orientation == 'portrait' && !selectedVideo.classList.contains('portrait-central-video')) {
+                    selectedVideo.classList.add('portrait-central-video');
                     selectedVideo.style.webkitTransform = 'rotate(' + mediaElement.rotation + 'deg) scale(0.8)';
-                } else if (mediaElement.orientation == 'landscape' && selectedVideo.classList.contains('rotated-central-video')) {
-                    selectedVideo.classList.toggle('rotated-central-video');
+                } else if (mediaElement.orientation == 'landscape' && selectedVideo.classList.contains('portrait-central-video')) {
+                    selectedVideo.classList.toggle('portrait-central-video');
+                    selectedVideo.style.webkitTransform = 'rotate(' + mediaElement.rotation + 'deg)';
+                }
+            } else {
+                if (mediaElement.orientation == 'landscape') {
+                    selectedVideo.style.webkitTransform = 'rotate(' + mediaElement.rotation + 'deg) scale(0.7)';
+                } else {
                     selectedVideo.style.webkitTransform = 'rotate(' + mediaElement.rotation + 'deg)';
                 }
             }
