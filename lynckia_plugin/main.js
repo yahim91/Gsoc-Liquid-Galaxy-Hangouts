@@ -36,17 +36,22 @@
         document.onwebkitfullscreenchange = function() {
             if (document.height > document.width) {
                 if (!document.webkitIsFullScreen) {
-                    if (selectedVideo.orientation === 'portrait'){ 
+                    if (selectedVideo.orientation === 'portrait') { 
                         selectedVideo.style.webkitTransform = selectedVideo.style.webkitTransform.split(' ')[0];
                         selectedVideo.style.top = '';
                         selectedVideo.style.bottom = '';
                         selectedVideo.style.left = '';
                     } else {
-                        selectedVideo.style.webkitTransform += 'scale(0.7)';
+                        selectedVideo.style.webkitTransform = selectedVideo.style.webkitTransform.split(' ')[0] + 'scale(0.7)';
+                        selectedVideo.style.webkitTransformOrigin = 'center';
                         selectedVideo.style.top = '';
                         selectedVideo.style.left = '';
                         selectedVideo.style.width = '';
                         selectedVideo.style.height = '';
+                        selectedVideo.style.margin = '';
+                        for (var i in participants[userid].slaves) {
+                            participants[userid].slaves[i].sendMessage({type:'cancel_fullscreen'});
+                        }
                     }
                 }
             } else {
@@ -54,6 +59,7 @@
                     selectedVideo.style.top = '';
                     selectedVideo.style.height = '';
                     selectedVideo.style.width = '';
+                    selectedVideo.style.margin = '';
                 }
             }
         }
@@ -143,6 +149,11 @@
                 attachButton.enabled = false;
                 attachButton.pressed = true;
             });
+            var selectSide = document.createElement('select');
+            selectSide.innerHTML = '<option>-select side-</option><option>right</option><option>left</option>';
+            selectSide.onchange = function() {
+                localStream.attributes.side = selectSide.options[selectSide.selectedIndex].value;
+            }
 
             var selectMaster = document.createElement('select');
             selectMaster.id = 'select-master';
@@ -163,7 +174,7 @@
                 }
             }
             var hint = document.createElement('option');
-            hint.innerHTML = '-select-';
+            hint.innerHTML = '-select master id-';
             hint.id = 'select';
             selectMaster.appendChild(hint);
             for (var i in room.remoteStreams) {
@@ -174,6 +185,7 @@
                 selectMaster.appendChild(option);
             }
             event.srcElement.parentNode.appendChild(selectMaster);
+            event.srcElement.parentNode.appendChild(selectSide);
         };
 		
 		selectedVideo = document.querySelector('.selectedVideo');
@@ -281,8 +293,8 @@
 
 	// Get user media
 	function getLocalUserMedia(media) {
-        localStream = Erizo.Stream({audio:media.audio, video: media.video, data: media.data, attributes: {userid: name, type: 'video', role:'regular', 
-                                    orientation: orientation}});
+        localStream = Erizo.Stream({screen: media.screen, audio:media.audio, video: media.video, data: media.data, attributes: {userid: name, type: 'video', 
+                                    role:'regular', orientation: orientation}});
         localStream.init();
         localStream.addEventListener('access-accepted', function(event) {
             if (!participants[userid]) {
@@ -293,7 +305,7 @@
             connectToRoom();
         });
 		localStream.addEventListener('access-denied', function(event) {
-            //getLocalUserMedia({screen: true, audio: false, video: true, data: true});
+            getLocalUserMedia({screen: true, audio: false, video: true, data: true});
             //console.log('error :' + event.code);
         });
 	}
@@ -308,7 +320,7 @@
         var streamId = stream.getAttributes().userid;
         var container = document.getElementById(streamId);
         var screenIcon = document.createElement('div');
-        screenIcon.className = 'screen-icon';
+        screenIcon.className = 'video-icon';
         screenIcon.innerHTML = 'S';
         screenIcon.onclick = function() {
             if (container.participant.streams.length < 2) {
@@ -410,8 +422,9 @@
 
         muteButton.className='mute';
         var screenIcon = document.createElement('div');
-        screenIcon.className = 'screen-icon';
+        screenIcon.className = 'video-icon';
         screenIcon.innerHTML = 'S';
+        screenIcon.title = 'Switch videos';
         screenIcon.currStream = 0;
         screenIcon.onclick = function() {
             if (configuration.participant.streams.length < 2) {
@@ -424,23 +437,43 @@
 
         var rotateButton = document.createElement('div');
         rotateButton.innerHTML = 'R';
-        rotateButton.className = 'screen-icon';
+        rotateButton.className = 'video-icon';
+        rotateButton.title = 'Rotate video';
+
+		var mediaElement = document.createElement('video');
+
+        var displayOnLG = document.createElement('div');
+        displayOnLG.innerHTML = 'D';
+        displayOnLG.className = 'video-icon';
+        displayOnLG.title = 'Display video on Liquid Galaxy';
+
+        displayOnLG.onclick = function() {
+            if (orientation !== 'portrait' || participants[userid].role !== 'master') {
+                return;
+            }
+            mediaElement.onclick();
+            if (configuration.participant.userid === 'local') {
+                participants[userid].displayOnLG(localStream.getID());
+            } else {
+                participants[userid].displayOnLG(configuration.participant.userid);
+            }
+        }
 
         caption.appendChild(muteButton);
         caption.appendChild(screenIcon);
         caption.appendChild(rotateButton);
+        caption.appendChild(displayOnLG);
         var stream = configuration.participant.streams[0].stream;
         
-		var mediaElement = document.createElement('video');
         mediaElement.rotation = 0;
-        mediaElement.orientation = configuration.participant.streams[0].attributes.orientation;
+        mediaElement.orientation = 'landscape';configuration.participant.streams[0].attributes.orientation;
 		mediaElement[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream
 				: webkitURL.createObjectURL(stream);
 		mediaElement.className = "tile-video";
-        if (mediaElement.orientation === 'portrait') {
+        /*if (mediaElement.orientation === 'portrait') {
             mediaElement.classList.add('rotated-tile-video');
             mediaElement.rotation = -90;
-        }
+        }*/
 		mediaElement.stream = stream;
 		mediaElement.autoplay = true;
 		mediaElement.controls = false;
@@ -726,7 +759,15 @@
                     });
                     slave.addStream(roomEvent.stream);
                     participants[userid].role = 'master';
+                    if (roomEvent.stream.getAttributes().side === 'left') {
+                        slave.index = participants[userid].leftSlaveNumber;
+                        participants[userid].leftSlaveNumber--;
+                    } else {
+                        slave.index = participants[userid].rightSlaveNumber;
+                        participants[userid].rightSlaveNumber++;
+                    }
                     participants[userid].slaves[remoteUserId] = slave;
+                    participants[userid].slaveSize++;
                     slave.sendMessage({type: 'request_accepted'});
                     participants[userid].handleSlaveVideos();
                     showMessage('Node ' + remoteUserId + ' joined!');
@@ -788,11 +829,26 @@
         var conv = document.querySelector('.conversation');
         conv.appendChild(item);
         conv.scrollTop = conv.scrollHeight;
-    }
+    };
+
+    function displayVideoFragment(fragmentIndex, nrOfFragments) {
+        var offset = screen.width * fragmentIndex;
+        selectedVideo.style.width = screen.width;
+        selectedVideo.style.height = screen.height;
+        selectedVideo.style.webkitTransform = selectedVideo.style.webkitTransform.split(' ')[0] + 'scale(' + nrOfFragments + ')';
+        selectedVideo.style.webkitTransformOrigin = '0%';
+        selectedVideo.style.top = '0px';
+        selectedVideo.style.left = - offset;
+        selectedVideo.style.margin = '0';
+        document.body.webkitRequestFullScreen();
+    };
 
     function Participant(participantConfig) {
         this.streams = [];
         this.slaves = {};
+        this.slaveSize = 0;
+        this.leftSlaveNumber = -1;
+        this.rightSlaveNumber = 1;
         this.visible = false;
         this.currentDisplay;
         this.role = participantConfig.role;
@@ -815,7 +871,7 @@
             setTimeout(function() {
                 caption.style.width = '';
             }, 2000);
-            caption.querySelector('.screen-icon').style.color = 'rgb(139, 238, 12)';
+            caption.querySelector('.video-icon').style.color = 'rgb(139, 238, 12)';
         }
     };
     
@@ -829,7 +885,7 @@
             if (toBeRemoved === this.streams[i]) {
                 this.streams.splice(i,1);
                 this.video.replaceStream(this.streams[0].stream);
-                this.video.parentNode.querySelector('.screen-icon').style.color = '';
+                this.video.parentNode.querySelector('.video-icon').style.color = '';
                 break;
             }
         }
@@ -853,6 +909,7 @@
             participants[id].isDisplayedBy = null;
         }
         delete this.slaves[slaveId];
+        this.slaveSize--;
     };
     
     Participant.prototype.onMessage = function(data) {
@@ -871,6 +928,15 @@
         } else if (message.type == 'chat') {
             var item = createConversationItem(data.from, message.load, 'message');
             addConversationItem(item);
+        } else if (message.type == 'display_lg'){
+            if (!participants[message.streamId]) {
+                room.subscribe(room.getStreamsByAttribute('userid', message.streamId)[0]);
+            } else if (!participants[message.streamId].visible) {
+                participants[message.streamId].show({'muted': true, 'participant': participants[message.streamId]});
+            }
+            displayVideoFragment(message.index, message.nrScreens);
+        } else if (message.type == 'cancel_fullscreen') {
+            document.onwebkitfullscreenchange();
         }
     };
     Participant.prototype.handleSlaveVideos = function () {
@@ -890,4 +956,15 @@
             }
         }
     }
+
+    Participant.prototype.displayOnLG = function(id) {
+        if (participants[userid].role !== 'master') {
+            return;
+        }
+        var toAdd = -(this.leftSlaveNumber + 1);
+        for (var i in this.slaves) {
+            this.slaves[i].sendMessage({type: 'display_lg', index: this.slaves[i].index + toAdd, nrScreens: this.slaveSize + 1, streamId: id});
+        }
+        displayVideoFragment(0 + toAdd, this.slaveSize + 1);
+    };
 }());

@@ -333,7 +333,6 @@ html, body {
 
 
 #select-master {
-    position:absolute;
     width:100%;
 }
 
@@ -451,7 +450,7 @@ html, body {
 .message {
     margin: 0 0 2px 0;                                                  
 }
-.screen-icon {
+.video-icon {
     color: rgb(231, 211, 211);
     cursor: pointer;
     left: 0px;
@@ -461,6 +460,7 @@ html, body {
 
 .media {
     text-align: center;
+    margin-top: 20px;
 }
 #mic {
     position: relative;
@@ -506,7 +506,6 @@ html, body {
     text-align: center;
     opacity: 0.7;
     background-color: black;
-    -webkit-transition: height 0.5s;
 }
 
 #camera {
