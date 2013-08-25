@@ -18,13 +18,15 @@
     audioContext,
     fullScreenCanvas,
     fullScreenContext,
-    orientation;
+    orientation,
+    pendingSlaves;
     	
 
 	function initialize() {
         screenShared = false;
         ready = false;
         participants = {};
+        pendingSlaves = {};
         meters = [];
         audioContext = new AudioContext();
         orientation = screen.width > screen.height ? 'landscape' : 'portrait';
@@ -482,7 +484,6 @@
 		mediaElement.onclick = function() {
 			selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? mediaElement.stream
 					: webkitURL.createObjectURL(mediaElement.stream);
-			selectedVideo.videoId = configuration.participant.userid;
 			selectedVideo.autoplay = true;
 			selectedVideo.muted = true;
 			selectedVideo.play();
@@ -508,7 +509,18 @@
                     selectedVideo.style.webkitTransform = 'rotate(' + mediaElement.rotation + 'deg)';
                 }
             }
+
+            if (selectedVideo.videoId !== configuration.participant.userid) {
+                if (selectedVideo.videoId) {
+                    participants[selectedVideo.videoId].hideSlaves();
+                }
+                if (configuration.participant.slaveSize > 0) {
+                        configuration.participant.showSlaves();
+                }
+            }
+			selectedVideo.videoId = configuration.participant.userid;
 		};
+
 		mediaElement.replaceStream = function(_stream) {
             if (selectedVideo.videoId === configuration.participant.userid) {
                 selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? _stream
@@ -752,6 +764,16 @@
                     } else {
                         participants[roomEvent.stream.getAttributes().userid].addStream(roomEvent.stream);
                     }
+                    if (pendingSlaves[remoteUserId]) {
+                        for (var i = 0; i < pendingSlaves[remoteUserId].length; i++) {
+                            var id = pendingSlaves[remoteUserId][i].userid;
+                            participants[remoteUserId].slaves[id] = pendingSlaves[remoteUserId][i];
+                        }
+                        participants[remoteUserId].role = 'master';
+                        participants[remoteUserId].slaveSize = pendingSlaves[remoteUserId].length;
+                        participants[remoteUserId].showSlaves();
+                        delete pendingSlaves[remoteUserId];
+                    }
                 } else if (attributes.masterId === localStream.getID()){
                     var slave = new Participant({
                         userid: remoteUserId,
@@ -771,6 +793,25 @@
                     slave.sendMessage({type: 'request_accepted'});
                     participants[userid].handleSlaveVideos();
                     showMessage('Node ' + remoteUserId + ' joined!');
+                    slave.show({'muted': true});
+                } else if (attributes.masterId !== localStream.getID()) {
+                    var slave = new Participant({
+                        userid: remoteUserId,
+                        role: 'slave'
+                    });
+                    slave.addStream(roomEvent.stream);
+                    if (!participants[attributes.masterId]) {
+                        if (pendingSlaves[attributes.masterId]) {
+                            pendingSlaves[attributes.masterId].slaves.push(slave);
+                        } else {
+                            pendingSlaves[attributes.masterId] = [slave];
+                        }
+                    } else {
+                        participants[attributes.masterId].role = 'master';
+                        participants[attributes.masterId].slaves[remoteUserId] = slave;
+                        participants[attributes.masterId].slaveSize++;
+                        participants[attributes.masterId].showSlaves();
+                    }
                 }
                 console.log('stream subscribed ' + roomEvent.stream.getAttributes().type);
             });
@@ -843,6 +884,25 @@
         document.body.webkitRequestFullScreen();
     };
 
+    function addSlaveScreen(stream, name) {
+        var div = document.createElement('div');
+
+        div.className = 'slave-screen';
+        var slaveScreen = document.createElement('video');
+        slaveScreen.className = 'tile-video';
+        slaveScreen.src = webkitURL.createObjectURL(stream.stream);
+        slaveScreen.play();
+        slaveScreen.muted = true;
+        div.appendChild(slaveScreen);
+        if (name) {
+            var nameDiv = document.createElement('div');
+            nameDiv.innerHTML = name;
+            nameDiv.className = 'video-user-name';
+            div.appendChild(nameDiv);
+        }
+        document.querySelector('#slave-screens').appendChild(div);
+    }
+
     function Participant(participantConfig) {
         this.streams = [];
         this.slaves = {};
@@ -856,10 +916,14 @@
     };
 
     Participant.prototype.show = function (conf) {
-        addVideoTag({
-            'muted' : conf.muted,
-            'participant' : this
-        });
+        if (this.role === 'slave') {
+           //addSlaveScreen(this.streams[0]);
+        } else {
+            addVideoTag({
+                'muted' : conf.muted,
+                'participant' : this
+            });
+        }
         this.visible = true;
     };
     
@@ -910,6 +974,28 @@
         }
         delete this.slaves[slaveId];
         this.slaveSize--;
+    };
+
+    Participant.prototype.showSlaves = function () {
+        if (orientation === 'portrait') {
+            return;
+        }
+        for (var i in this.slaves) {
+            if (this.slaves[i].visible === false) {
+                addSlaveScreen(this.slaves[i].streams[0], i);
+                this.slaves[i].visible = true;
+            }
+        }
+    };
+
+    Participant.prototype.hideSlaves = function () {
+        if (orientation === 'portrait') {
+            return;
+        }
+        for (var i in this.slaves) {
+            this.slaves[i].visible = false;
+        }
+        document.querySelector('#slave-screens').innerHTML = '';
     };
     
     Participant.prototype.onMessage = function(data) {

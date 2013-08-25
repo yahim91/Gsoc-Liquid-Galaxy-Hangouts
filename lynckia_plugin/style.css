@@ -125,6 +125,23 @@ html, body {
         font-family: "proxima-nova", sans-serif;
         text-align: center;
     }
+
+    #slave-screens {
+        position: absolute;
+        top: 500px;
+        width: 800px;
+        left:0;
+        right:0;
+        margin: auto;
+        bottom: 100px;
+    }
+
+    .slave-screen {
+        position: relative;
+        width: 199px;
+        height: 112px;
+        background-color:black;
+    }
 }
 
 @media only screen and (orientation:portrait) {
@@ -397,6 +414,10 @@ html, body {
 
 .video-tile-figure:hover figcaption {
     width: 113%;
+}
+
+.slave-screen:hover .video-user-name {
+    height: 16px;
 }
 
 .video-tile-figure:hover .video-user-name {
