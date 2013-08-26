@@ -66,7 +66,20 @@
             }
         }
         document.querySelector("#get-user-box").onkeydown = getUserName;
+        $('.text-area').autogrow({
+            onIncrease: function() {
+                $('.conversation').css('height', parseInt($('.conversation').css('height')) - 13);
+            },
+            onDecrease: function() {
+                $('.conversation').css('height', parseInt($('.conversation').css('height')) + 13);
+            }
+        });
         document.querySelector('.text-area').onkeydown = sendChatMessage;
+        document.querySelector('.text-area').onkeypress = function (e) {
+            if (e.which === 13) {
+                return false;
+            }
+        };
         /*setInterval(function() {
             for (var i = 0; i < meters.length; i++) {
                 var freqByteData = new Uint8Array(meters[i].analyzerNode.frequencyBinCount);
@@ -282,14 +295,27 @@
     function sendChatMessage(e) {
         if (e.keyCode === 13) {
             var message = document.querySelector(".text-area").value;
-            //message = message.substring(0, message.length - 2);
             document.querySelector(".text-area").value = '';
+            document.querySelector('#conversation').style.height = '';
+            document.querySelector('.text-area').style.height = '';
+
             if (message === '' || message === '\n') {
                 return;
             }
 
             localStream.sendData({from: localStream.getID(), message: {type: 'chat' , load: message}});
             addConversationItem(createConversationItem(localStream.getID() || localStream.attributes.userid, message, 'message'));
+        } else {
+            /*var conv_window = document.querySelector('#conversation');
+            var input_window = document.querySelector('.text-area');
+
+            if (input_window.clientHeight  + 3 < input_window.scrollHeight) {
+                conv_window.style.height = conv_window.clientHeight - 13;
+                input_window.style.height = input_window.clientHeight + 13;
+            } else {
+                //conv_window.style.height = conv_window.clientHeight + 13;
+                //input_window.style.height = input_window.clientHeight - 13;
+            }*/
         }
     }
 
@@ -711,7 +737,6 @@
                 var remoteUserId = roomEvent.stream.getID();
                 if (attributes.role === 'regular') {
                     if (attributes.type === 'video') {
-                        
                         if (!participants[remoteUserId]) {
                             return;
                         }
@@ -734,6 +759,8 @@
                 } else {
                     if (attributes.masterId === localStream.getID()) {
                         participants[userid].removeSlave(remoteUserId);
+                    } else {
+                        participants[attributes.masterId].removeSlave(remoteUserId);
                     }
                 }
             });
@@ -888,6 +915,7 @@
         var div = document.createElement('div');
 
         div.className = 'slave-screen';
+        div.id = 'slave-screen-' + name;
         var slaveScreen = document.createElement('video');
         slaveScreen.className = 'tile-video';
         slaveScreen.src = webkitURL.createObjectURL(stream.stream);
@@ -974,6 +1002,7 @@
         }
         delete this.slaves[slaveId];
         this.slaveSize--;
+        document.getElementById('slave-screen-' + slaveId).remove();;
     };
 
     Participant.prototype.showSlaves = function () {
