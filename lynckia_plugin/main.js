@@ -4,11 +4,10 @@
 	participants,
 	userid = 'local',
 	screenShareButton,
-    attachButton,
+    /*attachButton,*/
     screenShared,
     screenStream,
     localStream,
-    name,
     room,
 	slaves,
     ready,
@@ -19,14 +18,19 @@
     fullScreenCanvas,
     fullScreenContext,
     orientation,
-    pendingSlaves;
+    pendingSlaves,
+    userInfo,
+    autoJoin;
+
     	
 
 	function initialize() {
         screenShared = false;
         ready = false;
+        autoJoin = false;
         participants = {};
         pendingSlaves = {};
+        userInfo = {role: 'regular'};
         meters = [];
         audioContext = new AudioContext();
         orientation = screen.width > screen.height ? 'landscape' : 'portrait';
@@ -153,7 +157,7 @@
 		startButton = document.getElementById('start-button');
         startButton.started = false;
         startButton.onclick = start;
-        attachButton = document.getElementById('attach-to-rig');
+        /*attachButton = document.getElementById('attach-to-rig');
         attachButton.pressed = false;
         attachButton.enabled = false;
         attachButton.onclick = function (event) {
@@ -201,7 +205,7 @@
             }
             event.srcElement.parentNode.appendChild(selectMaster);
             event.srcElement.parentNode.appendChild(selectSide);
-        };
+        };*/
 		
 		selectedVideo = document.querySelector('.selectedVideo');
         selectedVideo.onclick = function () {
@@ -240,8 +244,7 @@
             if (!screenShareButton.enabled) {
                 return;
             }
-			screenStream = Erizo.Stream({screen: true, video: true, data: true, attributes: {userid: localStream.getID(), type: 'screen', role:'regular',
-                                            orientation: orientation}});
+			screenStream = Erizo.Stream({screen: true, video: true, data: true, attributes: {userid: localStream.getID(), type: 'screen', role:'regular', orientation: orientation}});
             screenStream.init();
             screenStream.addEventListener('access-accepted', function(event) {
                 participants[userid].addStream(screenStream);
@@ -261,7 +264,30 @@
                 console.log('denied');
             });
 		};
+        handleParameters();
 	}
+
+    function handleParameters() {
+        if (location.href.indexOf('?') == -1) {
+            return;
+        }
+
+        var type = getUrlParam('type');
+        userInfo.name = getUrlParam('id');
+        autoJoin = true;
+        
+        document.querySelector(".user").hidden = true;
+        document.querySelector(".message-video").hidden = false;
+        if (type === 'slave') {
+            userInfo.role = 'slave';
+            userInfo.masterId = getUrlParam('masterId');
+            userInfo.side = getUrlParam('side');
+            userInfo.position = getUrlParam('pos');
+            getLocalUserMedia({screen:true, audio:true, video:true, data:true});
+        } else {
+            getLocalUserMedia({audio:true, video:true, data:true});
+        }
+    }
 
 	function createId() {
 		return (Math.random() * new Date().getTime()).toString().toUpperCase()
@@ -286,7 +312,7 @@
     }
 
     function gotUserName() {
-        name = document.querySelector("#get-user-box").value;
+        userInfo.name = document.querySelector("#get-user-box").value;
         document.querySelector(".user").hidden = true;
         document.querySelector(".message-video").hidden = false;
         getLocalUserMedia({audio:true, video:true, data:true});
@@ -305,35 +331,36 @@
 
             localStream.sendData({from: localStream.getID(), message: {type: 'chat' , load: message}});
             addConversationItem(createConversationItem(localStream.getID() || localStream.attributes.userid, message, 'message'));
-        } else {
-            /*var conv_window = document.querySelector('#conversation');
-            var input_window = document.querySelector('.text-area');
-
-            if (input_window.clientHeight  + 3 < input_window.scrollHeight) {
-                conv_window.style.height = conv_window.clientHeight - 13;
-                input_window.style.height = input_window.clientHeight + 13;
-            } else {
-                //conv_window.style.height = conv_window.clientHeight + 13;
-                //input_window.style.height = input_window.clientHeight - 13;
-            }*/
         }
     }
 
 	// Get user media
 	function getLocalUserMedia(media) {
-        localStream = Erizo.Stream({screen: media.screen, audio:media.audio, video: media.video, data: media.data, attributes: {userid: name, type: 'video', 
-                                    role:'regular', orientation: orientation}});
+        localStream = Erizo.Stream({screen: media.screen,
+                                   audio:media.audio,
+                                   video: media.video,
+                                   data: media.data, 
+                                   attributes: {
+                                       userid: userInfo.name,
+                                       type: 'video',
+                                       role: userInfo.role,
+                                       masterId: userInfo.masterId,
+                                       side: userInfo.side,
+                                       position: userInfo.position,
+                                       orientation: orientation
+                                       }
+                                    });
         localStream.init();
         localStream.addEventListener('access-accepted', function(event) {
             if (!participants[userid]) {
-                participants[userid] = new Participant ({userid: userid, role: 'regular'});
+                participants[userid] = new Participant ({userid: userid, role: userInfo.role});
                 participants[userid].addStream(localStream);
                 participants[userid].show({muted: true});
             }
             connectToRoom();
         });
 		localStream.addEventListener('access-denied', function(event) {
-            getLocalUserMedia({screen: true, audio: false, video: true, data: true});
+            //getLocalUserMedia({screen: true, audio: false, video: true, data: true});
             //console.log('error :' + event.code);
         });
 	}
@@ -686,19 +713,24 @@
                 console.log('room-connected');
                 enableButton(startButton, function(){
                     ready = true;});
-                enableButton(attachButton, function() {
+                /*enableButton(attachButton, function() {
                     attachButton.enabled = true;
-                });
+                });*/
                 streams = roomEvent.streams;
                 showMessage('Ready to join!');
+                if (autoJoin) {
+                    start();
+                }
             });
             
             room.addEventListener('stream-added', function (roomEvent) {
                 if (localStream.getID() === roomEvent.stream.getID()) {
                     console.log('added '+ localStream.getID());
-                    enableButton(screenShareButton, function(){
-                        screenShareButton.enabled = true;
-                    });
+                    if (userInfo.role !== 'slave') {
+                        enableButton(screenShareButton, function(){
+                            screenShareButton.enabled = true;
+                        });
+                    }
                     participants[userid].changeName(localStream.getID());
                     return;
                 } else {
@@ -714,7 +746,7 @@
                         streams.push(roomEvent.stream);
                     }
 
-                    if (attachButton.pressed) {
+                    /*if (attachButton.pressed) {
                         if (attributes.type === 'screen') {
                             return;
                         }
@@ -724,7 +756,7 @@
                         option.innerHTML = remoteUserId;
                         option.id = 'opt_' + remoteUserId;
                         selectMaster.appendChild(option);
-                    }
+                    }*/
                 }
             });
             
@@ -746,12 +778,16 @@
                         participants[remoteUserId].removeStream(roomEvent.stream);
                         if (!participants[remoteUserId].hasStreams()) {
                             addConversationItem(createConversationItem(remoteUserId, 'left the room', 'notification'));
+                            var slave = participants[remoteUserId].isDisplayedBy;
                             delete participants[remoteUserId];
-                            if (attachButton.pressed) {
+                            if (slave && userInfo.role === 'regular') {
+                                participants[userid].slaves[slave].currentDisplay = null;
+                            }
+                            /*if (attachButton.pressed) {
                                 var selectMaster = document.getElementById('select-master');
                                 var toBeRemoved = selectMaster.querySelector('#opt_' + remoteUserId);
                                 selectMaster.removeChild(selectMaster.querySelector('#opt_' + remoteUserId));
-                            }
+                            }*/
                         }
                     } else {
                         participants[attributes.userid].removeStream(roomEvent.stream);
@@ -809,17 +845,18 @@
                     slave.addStream(roomEvent.stream);
                     participants[userid].role = 'master';
                     if (roomEvent.stream.getAttributes().side === 'left') {
-                        slave.index = participants[userid].leftSlaveNumber;
+                        slave.index = -roomEvent.stream.getAttributes().position;
                         participants[userid].leftSlaveNumber--;
                     } else {
-                        slave.index = participants[userid].rightSlaveNumber;
+                        slave.index = roomEvent.stream.getAttributes().position;
                         participants[userid].rightSlaveNumber++;
                     }
                     participants[userid].slaves[remoteUserId] = slave;
                     participants[userid].slaveSize++;
                     slave.sendMessage({type: 'request_accepted'});
                     participants[userid].handleSlaveVideos();
-                    showMessage('Node ' + remoteUserId + ' joined!');
+                    
+                    addConversationItem(createConversationItem(remoteUserId, 'node joined', 'notification'));
                     slave.show({'muted': true});
                 } else if (attributes.masterId !== localStream.getID()) {
                     var slave = new Participant({
@@ -853,9 +890,9 @@
         disableButton(startButton, function(){
             startButton.started = true;
         });
-        disableButton(attachButton, function() {
+        /*disableButton(attachButton, function() {
             attachButton.enabled = false;
-        });
+        });*/
         room.publish(localStream);
         
         if (localStream.attributes.role === 'regular') {
@@ -944,7 +981,7 @@
     };
 
     Participant.prototype.show = function (conf) {
-        if (this.role === 'slave') {
+        if (this.role === 'slave' && this.userid != 'local') {
            //addSlaveScreen(this.streams[0]);
         } else {
             addVideoTag({
@@ -1054,6 +1091,7 @@
             document.onwebkitfullscreenchange();
         }
     };
+
     Participant.prototype.handleSlaveVideos = function () {
         for (var i in this.slaves) {
             if(!this.slaves[i].currentDisplay) {
@@ -1062,7 +1100,7 @@
                         continue;
                     }
                     if (!participants[j].isDisplayedBy) {
-                        participants[j].idDisplayedBy = i;
+                        participants[j].isDisplayedBy = i;
                         this.slaves[i].currentDisplay = j;
                         this.slaves[i].sendMessage({type: 'display_request', idToDisplay: j});
                         return;

@@ -141,6 +141,7 @@ html, body {
         width: 199px;
         height: 112px;
         background-color:black;
+        display: inline-block;
     }
 
     .conversation {
