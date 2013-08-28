@@ -20,7 +20,8 @@
     orientation,
     pendingSlaves,
     userInfo,
-    autoJoin;
+    autoJoin,
+    slaveVideoGroup;
 
     	
 
@@ -28,6 +29,7 @@
         screenShared = false;
         ready = false;
         autoJoin = false;
+        slaveVideoGroup = {};
         participants = {};
         pendingSlaves = {};
         userInfo = {role: 'regular'};
@@ -62,20 +64,20 @@
                 }
             } else {
                 if (!document.webkitIsFullScreen) {
+                    selectedVideo.style.margin = '';
                     selectedVideo.style.top = '';
                     selectedVideo.style.height = '';
                     selectedVideo.style.width = '';
-                    selectedVideo.style.margin = '';
                 }
             }
         }
         document.querySelector("#get-user-box").onkeydown = getUserName;
         $('.text-area').autogrow({
-            onIncrease: function() {
-                $('.conversation').css('height', parseInt($('.conversation').css('height')) - 13);
+            onIncrease: function(newHeight, oldHeight) {
+                $('.conversation').css('height', parseInt($('.conversation').css('height')) - parseInt(Math.abs(newHeight - oldHeight)/10) * 13);
             },
-            onDecrease: function() {
-                $('.conversation').css('height', parseInt($('.conversation').css('height')) + 13);
+            onDecrease: function(newHeight, oldHeight) {
+                $('.conversation').css('height', parseInt($('.conversation').css('height')) + parseInt(Math.abs(newHeight - oldHeight)/10) * 13);
             }
         });
         document.querySelector('.text-area').onkeydown = sendChatMessage;
@@ -209,6 +211,7 @@
 		
 		selectedVideo = document.querySelector('.selectedVideo');
         selectedVideo.onclick = function () {
+
             if (screen.width < screen.height) {
                 if (selectedVideo.orientation === 'portrait') {
                     selectedVideo.style.webkitTransform = selectedVideo.style.webkitTransform.split(" ")[0] + 'scaleY(' + (screen.width / selectedVideo.clientHeight) + ') ' 
@@ -235,8 +238,8 @@
                     selectedVideo.style.top = '0px';
                 }
             }
+
             document.body.webkitRequestFullScreen();
-            //document.querySelector(".central-video-fullscreen").webkitRequestFullScreen();
         }
 		screenShareButton = document.getElementById('share-screen-button');
         screenShareButton.enabled = false;
@@ -282,7 +285,7 @@
             userInfo.role = 'slave';
             userInfo.masterId = getUrlParam('masterId');
             userInfo.side = getUrlParam('side');
-            userInfo.position = getUrlParam('pos');
+            userInfo.position = parseInt(getUrlParam('pos'));
             getLocalUserMedia({screen:true, audio:true, video:true, data:true});
         } else {
             getLocalUserMedia({audio:true, video:true, data:true});
@@ -535,6 +538,10 @@
 		mediaElement.muted = configuration.muted;
 		mediaElement.play();
 		mediaElement.onclick = function() {
+            if (slaveVideoGroup.selectedId !== undefined) {
+                slaveVideoGroup.selectedDiv.classList.toggle('video-selected');
+                slaveVideoGroup.selectedId = undefined;
+            }
 			selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? mediaElement.stream
 					: webkitURL.createObjectURL(mediaElement.stream);
 			selectedVideo.autoplay = true;
@@ -949,11 +956,29 @@
     };
 
     function addSlaveScreen(stream, name) {
+        var newWidth = 800 / ($('#slave-screens').children().length + 1);
         var div = document.createElement('div');
+        
+        if (newWidth < 200) {
+            $('#slave-screens').children('div').each(function() {
+                this.style.width = newWidth;
+            });
+            div.style.width = newWidth;
+        }
 
         div.className = 'slave-screen';
         div.id = 'slave-screen-' + name;
         var slaveScreen = document.createElement('video');
+        slaveScreen.onclick = function() {
+            if (slaveVideoGroup.selectedId !== undefined) {
+                slaveVideoGroup.selectedDiv.classList.toggle('video-selected');
+            }
+            this.classList.add('video-selected');
+            slaveVideoGroup.selectedId = name;
+            slaveVideoGroup.selectedDiv = this;
+            selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream.stream
+                            : webkitURL.createObjectURL(stream.stream);
+        }
         slaveScreen.className = 'tile-video';
         slaveScreen.src = webkitURL.createObjectURL(stream.stream);
         slaveScreen.play();
@@ -965,7 +990,7 @@
             nameDiv.className = 'video-user-name';
             div.appendChild(nameDiv);
         }
-        document.querySelector('#slave-screens').appendChild(div);
+        $('#slave-screens').append(div);
     }
 
     function Participant(participantConfig) {
@@ -1074,9 +1099,8 @@
             this.galaxyConnectionState = 'connected';
             showMessage('Connected to master ' + data.from);
         } else if (message.type == 'display_request') {
-            var toBeDisplayed = room.getStreamsByAttribute('userid', message.idToDisplay)[0];
             participants[userid].idToDisplay = message.idToDisplay;
-            room.subscribe(toBeDisplayed);
+            room.subscribe(room.remoteStreams[message.idToDisplay]);
         } else if (message.type == 'chat') {
             var item = createConversationItem(data.from, message.load, 'message');
             addConversationItem(item);
