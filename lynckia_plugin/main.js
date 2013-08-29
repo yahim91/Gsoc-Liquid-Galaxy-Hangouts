@@ -1000,6 +1000,19 @@
             div.appendChild(nameDiv);
         }
         $('#slave-screens').append(div);
+    };
+
+    document.removeSlave = function removeSlaveScreen(id) {
+        var newWidth = slaveVideoGroup.width / ($('#slave-screens').children().length - 1);
+        var currentScreenWidth = Math.min(slaveVideoGroup.screenMaxWidth, newWidth);
+        var offset = (slaveVideoGroup.width - currentScreenWidth * ($('#slave-screens').children('div').length - 1))/2;
+        offset += ($('#slave-screens').children('div').length - 2) * currentScreenWidth;
+        $('#slave-screen-' + id).remove();
+        $('#slave-screens').children('div').each(function() {
+            this.style.right = offset;
+            this.style.width = currentScreenWidth;
+            offset-= currentScreenWidth;
+        });
     }
 
     function Participant(participantConfig) {
@@ -1073,7 +1086,7 @@
         }
         delete this.slaves[slaveId];
         this.slaveSize--;
-        document.getElementById('slave-screen-' + slaveId).remove();;
+        removeSlaveScreen(slaveId);
     };
 
     Participant.prototype.showSlaves = function () {
