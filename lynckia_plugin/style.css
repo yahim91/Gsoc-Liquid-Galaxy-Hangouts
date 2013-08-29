@@ -137,7 +137,7 @@ html, body {
     }
 
     .slave-screen {
-        position: relative;
+        position: absolute;
         width: 199px;
         height: 112px;
         background-color:black;

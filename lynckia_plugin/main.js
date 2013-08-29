@@ -29,7 +29,7 @@
         screenShared = false;
         ready = false;
         autoJoin = false;
-        slaveVideoGroup = {};
+        slaveVideoGroup = {width: $('#slave-screens').width(), screenMaxWidth: 200};
         participants = {};
         pendingSlaves = {};
         userInfo = {role: 'regular'};
@@ -955,8 +955,8 @@
         document.body.webkitRequestFullScreen();
     };
 
-    function addSlaveScreen(stream, name) {
-        var newWidth = 800 / ($('#slave-screens').children().length + 1);
+    document.addSlave = function addSlaveScreen(stream, name) {
+        var newWidth = slaveVideoGroup.width / ($('#slave-screens').children().length + 1);
         var div = document.createElement('div');
         
         if (newWidth < 200) {
@@ -965,6 +965,15 @@
             });
             div.style.width = newWidth;
         }
+        var currentScreenWidth = Math.min(slaveVideoGroup.screenMaxWidth, newWidth);
+        var offset = (slaveVideoGroup.width - currentScreenWidth * ($('#slave-screens').children('div').length + 1))/2;
+        offset += ($('#slave-screens').children('div').length) * currentScreenWidth;
+        $('#slave-screens').children('div').each(function() {
+            this.style.right = offset;
+            offset-= currentScreenWidth;
+        });
+        div.style.left = 'auto';
+        div.style.right = offset;
 
         div.className = 'slave-screen';
         div.id = 'slave-screen-' + name;
@@ -980,7 +989,7 @@
                             : webkitURL.createObjectURL(stream.stream);
         }
         slaveScreen.className = 'tile-video';
-        slaveScreen.src = webkitURL.createObjectURL(stream.stream);
+        //slaveScreen.src = webkitURL.createObjectURL(stream.stream);
         slaveScreen.play();
         slaveScreen.muted = true;
         div.appendChild(slaveScreen);

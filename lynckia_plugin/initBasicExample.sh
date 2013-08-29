@@ -1,3 +1,3 @@
 #!/bin/bash
 
-node basicServer.js 
+nohup node basicServer.js &
