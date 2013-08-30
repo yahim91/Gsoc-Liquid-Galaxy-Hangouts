@@ -363,7 +363,7 @@
             connectToRoom();
         });
 		localStream.addEventListener('access-denied', function(event) {
-            //getLocalUserMedia({screen: true, audio: false, video: true, data: true});
+            getLocalUserMedia({audio: true, video: true, data: true});
             //console.log('error :' + event.code);
         });
 	}
@@ -742,28 +742,17 @@
                     return;
                 } else {
                     var attributes = roomEvent.stream.attributes;
-                    if (attributes.role === 'slave' && attributes.masterId !== localStream.getID()) {
+                    /*if (attributes.role === 'slave' && attributes.masterId !== localStream.getID()) {
                         return;
-                    }
+                    }*/
                     if (startButton.started) {
-                        if (participants[userid].role === 'regular' || participants[userid].role === 'master') {
+                        if ((participants[userid].role === 'regular' || participants[userid].role === 'master') || attributes.userid === 
+                                userInfo.masterId) {
                             room.subscribe(roomEvent.stream);
                         }
                     } else {
                         streams.push(roomEvent.stream);
                     }
-
-                    /*if (attachButton.pressed) {
-                        if (attributes.type === 'screen') {
-                            return;
-                        }
-                        var selectMaster = document.getElementById('select-master');
-                        var option = document.createElement('option');
-                        var remoteUserId =  roomEvent.stream.getID();
-                        option.innerHTML = remoteUserId;
-                        option.id = 'opt_' + remoteUserId;
-                        selectMaster.appendChild(option);
-                    }*/
                 }
             });
             
@@ -906,7 +895,9 @@
             subscribeToStreams(streams);
         } else {
             var master = room.getStreamsByAttribute('userid', localStream.attributes.masterId)[0];
-            room.subscribe(master);
+            if (master) {
+                room.subscribe(master);
+            }
         }
     };
 
@@ -955,7 +946,7 @@
         document.body.webkitRequestFullScreen();
     };
 
-    document.addSlave = function addSlaveScreen(stream, name) {
+    function addSlaveScreen(stream, name) {
         var newWidth = slaveVideoGroup.width / ($('#slave-screens').children().length + 1);
         var div = document.createElement('div');
         
@@ -989,7 +980,7 @@
                             : webkitURL.createObjectURL(stream.stream);
         }
         slaveScreen.className = 'tile-video';
-        //slaveScreen.src = webkitURL.createObjectURL(stream.stream);
+        slaveScreen.src = webkitURL.createObjectURL(stream.stream);
         slaveScreen.play();
         slaveScreen.muted = true;
         div.appendChild(slaveScreen);
@@ -1002,7 +993,7 @@
         $('#slave-screens').append(div);
     };
 
-    document.removeSlave = function removeSlaveScreen(id) {
+    function removeSlaveScreen(id) {
         var newWidth = slaveVideoGroup.width / ($('#slave-screens').children().length - 1);
         var currentScreenWidth = Math.min(slaveVideoGroup.screenMaxWidth, newWidth);
         var offset = (slaveVideoGroup.width - currentScreenWidth * ($('#slave-screens').children('div').length - 1))/2;
@@ -1087,6 +1078,10 @@
         delete this.slaves[slaveId];
         this.slaveSize--;
         removeSlaveScreen(slaveId);
+        if (slaveVideoGroup.selectedId === slaveId) {
+            this.video.onclick();
+            slaveVideoGroup.selectedId = undefined;
+        }
     };
 
     Participant.prototype.showSlaves = function () {
