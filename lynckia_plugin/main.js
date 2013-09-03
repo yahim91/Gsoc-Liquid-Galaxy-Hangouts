@@ -37,7 +37,7 @@
         audioContext = new AudioContext();
         orientation = screen.width > screen.height ? 'landscape' : 'portrait';
         document.querySelector('#go-button').onclick = function(){
-            gotUserName();
+            gotUserRoomNames();
         }
 
 
@@ -310,13 +310,14 @@
 
     function getUserName(e) {
         if (e.keyCode === 13) {
-           //gotUserName(); 
+           //gotUserRoomNames(); 
         }
     }
 
-    function gotUserName() {
-        userInfo.name = document.querySelector("#get-user-box").value;
-        document.querySelector(".user").hidden = true;
+    function gotUserRoomNames() {
+        userInfo.name = $("#get-user-box").val();
+        userInfo.room = $('#get-room-box').val();
+        document.querySelector(".user-room-input").hidden = true;
         document.querySelector(".message-video").hidden = false;
         getLocalUserMedia({audio:true, video:true, data:true});
     }
@@ -360,7 +361,7 @@
                 participants[userid].addStream(localStream);
                 participants[userid].show({muted: true});
             }
-            connectToRoom();
+            connectToRoom(userInfo.room);
         });
 		localStream.addEventListener('access-denied', function(event) {
             getLocalUserMedia({audio: true, video: true, data: true});
@@ -668,15 +669,41 @@
 
     function leaveRoom() {
         room.disconnect();
+        deleteRoom();
     }
 
 	window.onload = initialize;
-    window.onbeforeload = leaveRoom;
-    
-    var createToken = function(callback) {
+    window.onbeforeunload = leaveRoom;
+
+    function getRooms(callback) {
         var xhr = new XMLHttpRequest();
-        var url = '/createToken/';
-        var body = {'username': userid, 'role': {}};
+        var url = '/getRooms/';
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4) {
+                callback(JSON.parse(xhr.responseText));
+            }
+        }
+        
+        xhr.open('GET', url, true);
+        xhr.send();
+    };
+
+    function deleteRoom() {
+        var xhr = new XMLHttpRequest();
+        var url = '/rooms/';
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4) {
+                callback(xhr.responseText);
+            }
+        }
+        xhr.open('DELETE', url + userInfo.roomID, true);
+        xhr.send();
+    };
+
+    function createRoom(roomName, callback) {
+        var xhr = new XMLHttpRequest();
+        var url = '/createRoom/';
+        var body = {'roomname': roomName};
         xhr.onreadystatechange = function () {
             if (xhr.readyState === 4) {
                 callback(xhr.responseText);
@@ -684,6 +711,23 @@
         }
         
         xhr.open('POST', url, true);
+
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify(body));
+    }
+    
+    var createToken = function(roomID, callback) {
+        var xhr = new XMLHttpRequest();
+        var url = '/createToken/';
+        var body = {role: 'user', 'roomID': roomID};
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4) {
+                callback(xhr.responseText);
+            }
+        }
+        
+        xhr.open('POST', url, true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.send(JSON.stringify(body));
     }
     
@@ -711,171 +755,190 @@
         callback();
     }
 
-       
-    function connectToRoom() {
-        createToken(function(token){
-            console.log(token);
-            room = Erizo.Room({'token': token});
-            room.addEventListener('room-connected', function(roomEvent) {
-                console.log('room-connected');
-                enableButton(startButton, function(){
-                    ready = true;});
-                /*enableButton(attachButton, function() {
-                    attachButton.enabled = true;
-                });*/
-                streams = roomEvent.streams;
-                showMessage('Ready to join!');
-                if (autoJoin) {
-                    start();
+    function gotToken(token) {
+        console.log(token);
+        room = Erizo.Room({'token': token});
+        room.addEventListener('room-connected', function(roomEvent) {
+            console.log('room-connected');
+            enableButton(startButton, function(){
+                ready = true;});
+            /*enableButton(attachButton, function() {
+                attachButton.enabled = true;
+            });*/
+            streams = roomEvent.streams;
+            showMessage('Ready to join!');
+            if (autoJoin) {
+                start();
+            }
+        });
+        
+        room.addEventListener('stream-added', function (roomEvent) {
+            if (localStream.getID() === roomEvent.stream.getID()) {
+                console.log('added '+ localStream.getID());
+                if (userInfo.role !== 'slave') {
+                    enableButton(screenShareButton, function(){
+                        screenShareButton.enabled = true;
+                    });
                 }
-            });
-            
-            room.addEventListener('stream-added', function (roomEvent) {
-                if (localStream.getID() === roomEvent.stream.getID()) {
-                    console.log('added '+ localStream.getID());
-                    if (userInfo.role !== 'slave') {
-                        enableButton(screenShareButton, function(){
-                            screenShareButton.enabled = true;
-                        });
-                    }
-                    participants[userid].changeName(localStream.getID());
+                participants[userid].changeName(localStream.getID());
+                return;
+            } else {
+                var attributes = roomEvent.stream.attributes;
+                /*if (attributes.role === 'slave' && attributes.masterId !== localStream.getID()) {
                     return;
+                }*/
+                if (startButton.started) {
+                    if ((participants[userid].role === 'regular' || participants[userid].role === 'master') || attributes.userid === 
+                            userInfo.masterId) {
+                        room.subscribe(roomEvent.stream);
+                    }
                 } else {
-                    var attributes = roomEvent.stream.attributes;
-                    /*if (attributes.role === 'slave' && attributes.masterId !== localStream.getID()) {
-                        return;
-                    }*/
-                    if (startButton.started) {
-                        if ((participants[userid].role === 'regular' || participants[userid].role === 'master') || attributes.userid === 
-                                userInfo.masterId) {
-                            room.subscribe(roomEvent.stream);
-                        }
-                    } else {
-                        streams.push(roomEvent.stream);
-                    }
+                    streams.push(roomEvent.stream);
                 }
-            });
-            
-            room.addEventListener('stream-removed', function(roomEvent) {
-                if (roomEvent.stream.getID() === localStream.getID()) {
-                    return;
-                }
+            }
+        });
+        
+        room.addEventListener('stream-removed', function(roomEvent) {
+            if (roomEvent.stream.getID() === localStream.getID()) {
+                return;
+            }
 
-                var attributes = roomEvent.stream.getAttributes();
-                var remoteUserId = roomEvent.stream.getID();
-                if (attributes.role === 'regular') {
-                    if (attributes.type === 'video') {
-                        if (!participants[remoteUserId]) {
-                            return;
+            var attributes = roomEvent.stream.getAttributes();
+            var remoteUserId = roomEvent.stream.getID();
+            if (attributes.role === 'regular') {
+                if (attributes.type === 'video') {
+                    if (!participants[remoteUserId]) {
+                        return;
+                    }
+                    if(participants[userid].role === 'slave' && remoteUserId === participants[userid].masterId) {
+                        location.reload();
+                    }
+                    participants[remoteUserId].removeStream(roomEvent.stream);
+                    if (!participants[remoteUserId].hasStreams()) {
+                        addConversationItem(createConversationItem(remoteUserId, 'left the room', 'notification'));
+                        var slave = participants[remoteUserId].isDisplayedBy;
+                        delete participants[remoteUserId];
+                        if (slave && userInfo.role === 'regular') {
+                            participants[userid].slaves[slave].currentDisplay = null;
                         }
-                        if(participants[userid].role === 'slave' && remoteUserId === participants[userid].masterId) {
-                            location.reload();
-                        }
-                        participants[remoteUserId].removeStream(roomEvent.stream);
-                        if (!participants[remoteUserId].hasStreams()) {
-                            addConversationItem(createConversationItem(remoteUserId, 'left the room', 'notification'));
-                            var slave = participants[remoteUserId].isDisplayedBy;
-                            delete participants[remoteUserId];
-                            if (slave && userInfo.role === 'regular') {
-                                participants[userid].slaves[slave].currentDisplay = null;
-                            }
-                            /*if (attachButton.pressed) {
-                                var selectMaster = document.getElementById('select-master');
-                                var toBeRemoved = selectMaster.querySelector('#opt_' + remoteUserId);
-                                selectMaster.removeChild(selectMaster.querySelector('#opt_' + remoteUserId));
-                            }*/
-                        }
-                    } else {
-                        participants[attributes.userid].removeStream(roomEvent.stream);
+                        /*if (attachButton.pressed) {
+                            var selectMaster = document.getElementById('select-master');
+                            var toBeRemoved = selectMaster.querySelector('#opt_' + remoteUserId);
+                            selectMaster.removeChild(selectMaster.querySelector('#opt_' + remoteUserId));
+                        }*/
                     }
                 } else {
-                    if (attributes.masterId === localStream.getID()) {
-                        participants[userid].removeSlave(remoteUserId);
-                    } else {
-                        participants[attributes.masterId].removeSlave(remoteUserId);
-                    }
+                    participants[attributes.userid].removeStream(roomEvent.stream);
                 }
-            });
-            
-            room.addEventListener('stream-subscribed', function(roomEvent) {
-                var attributes = roomEvent.stream.getAttributes();
-                var remoteUserId = roomEvent.stream.getID();
-                if (attributes.role === 'regular') {
-                    if (attributes.type === 'video') {
-                        if (participants[remoteUserId] === undefined) {
-                            participants[remoteUserId] = new Participant({
-                                userid: remoteUserId,
-                                role: 'regular'
-                            });
-                            addConversationItem(createConversationItem(remoteUserId, 'joined the room', 'notification'));
-                        }
-                        participants[remoteUserId].addStream(roomEvent.stream);
-                        if (((participants[userid].role === 'regular' || participants[userid].role === 'master') ||
-                        (participants[userid].idToDisplay === remoteUserId)) && !participants[remoteUserId].visible) {
-                            participants[remoteUserId].show({muted: false});
-                        }
-                        roomEvent.stream.addEventListener('stream-data', function(event){
-                            participants[remoteUserId].onMessage(event.msg);
+            } else {
+                if (attributes.masterId === localStream.getID()) {
+                    participants[userid].removeSlave(remoteUserId);
+                } else {
+                    participants[attributes.masterId].removeSlave(remoteUserId);
+                }
+            }
+        });
+        
+        room.addEventListener('stream-subscribed', function(roomEvent) {
+            var attributes = roomEvent.stream.getAttributes();
+            var remoteUserId = roomEvent.stream.getID();
+            if (attributes.role === 'regular') {
+                if (attributes.type === 'video') {
+                    if (participants[remoteUserId] === undefined) {
+                        participants[remoteUserId] = new Participant({
+                            userid: remoteUserId,
+                            role: 'regular'
                         });
-                        if (participants[userid].role === 'master') {
-                            participants[userid].handleSlaveVideos();
-                        }
-                    } else {
-                        participants[roomEvent.stream.getAttributes().userid].addStream(roomEvent.stream);
+                        addConversationItem(createConversationItem(remoteUserId, 'joined the room', 'notification'));
                     }
-                    if (pendingSlaves[remoteUserId]) {
-                        for (var i = 0; i < pendingSlaves[remoteUserId].length; i++) {
-                            var id = pendingSlaves[remoteUserId][i].userid;
-                            participants[remoteUserId].slaves[id] = pendingSlaves[remoteUserId][i];
-                        }
-                        participants[remoteUserId].role = 'master';
-                        participants[remoteUserId].slaveSize = pendingSlaves[remoteUserId].length;
-                        participants[remoteUserId].showSlaves();
-                        delete pendingSlaves[remoteUserId];
+                    participants[remoteUserId].addStream(roomEvent.stream);
+                    if (((participants[userid].role === 'regular' || participants[userid].role === 'master') ||
+                    (participants[userid].idToDisplay === remoteUserId)) && !participants[remoteUserId].visible) {
+                        participants[remoteUserId].show({muted: false});
                     }
-                } else if (attributes.masterId === localStream.getID()){
-                    var slave = new Participant({
-                        userid: remoteUserId,
-                        role: 'slave'
+                    roomEvent.stream.addEventListener('stream-data', function(event){
+                        participants[remoteUserId].onMessage(event.msg);
                     });
-                    slave.addStream(roomEvent.stream);
-                    participants[userid].role = 'master';
-                    if (roomEvent.stream.getAttributes().side === 'left') {
-                        slave.index = -roomEvent.stream.getAttributes().position;
-                        participants[userid].leftSlaveNumber--;
-                    } else {
-                        slave.index = roomEvent.stream.getAttributes().position;
-                        participants[userid].rightSlaveNumber++;
+                    if (participants[userid].role === 'master') {
+                        participants[userid].handleSlaveVideos();
                     }
-                    participants[userid].slaves[remoteUserId] = slave;
-                    participants[userid].slaveSize++;
-                    slave.sendMessage({type: 'request_accepted'});
-                    participants[userid].handleSlaveVideos();
-                    
-                    addConversationItem(createConversationItem(remoteUserId, 'node joined', 'notification'));
-                    slave.show({'muted': true});
-                } else if (attributes.masterId !== localStream.getID()) {
-                    var slave = new Participant({
-                        userid: remoteUserId,
-                        role: 'slave'
-                    });
-                    slave.addStream(roomEvent.stream);
-                    if (!participants[attributes.masterId]) {
-                        if (pendingSlaves[attributes.masterId]) {
-                            pendingSlaves[attributes.masterId].slaves.push(slave);
-                        } else {
-                            pendingSlaves[attributes.masterId] = [slave];
-                        }
-                    } else {
-                        participants[attributes.masterId].role = 'master';
-                        participants[attributes.masterId].slaves[remoteUserId] = slave;
-                        participants[attributes.masterId].slaveSize++;
-                        participants[attributes.masterId].showSlaves();
-                    }
+                } else {
+                    participants[roomEvent.stream.getAttributes().userid].addStream(roomEvent.stream);
                 }
-                console.log('stream subscribed ' + roomEvent.stream.getAttributes().type);
-            });
-            room.connect();
+                if (pendingSlaves[remoteUserId]) {
+                    for (var i = 0; i < pendingSlaves[remoteUserId].length; i++) {
+                        var id = pendingSlaves[remoteUserId][i].userid;
+                        participants[remoteUserId].slaves[id] = pendingSlaves[remoteUserId][i];
+                    }
+                    participants[remoteUserId].role = 'master';
+                    participants[remoteUserId].slaveSize = pendingSlaves[remoteUserId].length;
+                    participants[remoteUserId].showSlaves();
+                    delete pendingSlaves[remoteUserId];
+                }
+            } else if (attributes.masterId === localStream.getID()){
+                var slave = new Participant({
+                    userid: remoteUserId,
+                    role: 'slave'
+                });
+                slave.addStream(roomEvent.stream);
+                participants[userid].role = 'master';
+                if (roomEvent.stream.getAttributes().side === 'left') {
+                    slave.index = -roomEvent.stream.getAttributes().position;
+                    participants[userid].leftSlaveNumber--;
+                } else {
+                    slave.index = roomEvent.stream.getAttributes().position;
+                    participants[userid].rightSlaveNumber++;
+                }
+                participants[userid].slaves[remoteUserId] = slave;
+                participants[userid].slaveSize++;
+                slave.sendMessage({type: 'request_accepted'});
+                participants[userid].handleSlaveVideos();
+                
+                addConversationItem(createConversationItem(remoteUserId, 'node joined', 'notification'));
+                slave.show({'muted': true});
+            } else if (attributes.masterId !== localStream.getID()) {
+                var slave = new Participant({
+                    userid: remoteUserId,
+                    role: 'slave'
+                });
+                slave.addStream(roomEvent.stream);
+                if (!participants[attributes.masterId]) {
+                    if (pendingSlaves[attributes.masterId]) {
+                        pendingSlaves[attributes.masterId].slaves.push(slave);
+                    } else {
+                        pendingSlaves[attributes.masterId] = [slave];
+                    }
+                } else {
+                    participants[attributes.masterId].role = 'master';
+                    participants[attributes.masterId].slaves[remoteUserId] = slave;
+                    participants[attributes.masterId].slaveSize++;
+                    participants[attributes.masterId].showSlaves();
+                }
+            }
+            console.log('stream subscribed ' + roomEvent.stream.getAttributes().type);
+        });
+        room.connect();
+    }
+    function connectToRoom(room) {
+        getRooms(function(rooms) {
+            var roomExists = false;
+            for (var i in rooms) {
+                if (rooms[i].name === userInfo.room) {
+                    roomExists = true;
+                    userInfo.roomID = rooms[i]._id;
+                    break;
+                }
+            }
+
+            if (!roomExists) {
+                createRoom(room, function(room) {
+                    room = JSON.parse(room);
+                    userInfo.roomID = room._id;
+                    createToken(room._id, gotToken);
+                });
+            } else {
+                createToken(userInfo.roomID, gotToken);
+            }
         });
     };
     

@@ -13,10 +13,10 @@ var options = {
 
 var app = express();
 
-app.use(express.bodyParser());
 
 app.configure(function () {
     "use strict";
+    app.use(express.bodyParser());
     app.use(express.errorHandler({ dumpExceptions: true, showStack: true }));
     app.use(express.logger());
     app.use(express.static(__dirname));
@@ -57,14 +57,25 @@ N.API.getRooms(function (roomlist) {
     }
 });
 
+app.post('/createRoom/', function(req, res) {
+    N.API.createRoom(req.body.roomname, function(roomID) {
+        res.send(roomID);
+    }, function(e) {
+        console.log('Error: ', e);
+    });
+});
+
 app.post('/createToken/', function (req, res) {
     "use strict";
-    var room = myRoom,
-        username = req.body.username,
+    var room = req.body.roomID,
+        username = 'local',
         role = req.body.role;
+    console.log('createToken: ' + room + ' ' + username + ' ' + role);
     N.API.createToken(room, username, role, function (token) {
         console.log(token);
         res.send(token);
+    }, function(e) {
+        console.log('Error : ', e);   
     });
 });
 
@@ -80,6 +91,19 @@ app.get('/getUsers/:room', function (req, res) {
     var room = req.params.room;
     N.API.getUsers(room, function (users) {
         res.send(users);
+    });
+});
+
+app.delete('/rooms/:room', function(req, res) {
+    N.API.getUsers(req.params.room, function(users) {
+        var usersList = JSON.parse(users);
+        console.log('Nr of users :' + usersList.length);
+        if (usersList.length === 0) {
+            console.log('deleting ' + req.params.room);
+            N.API.deleteRoom(req.params.room, function(result) {
+                console.log('Result: ', result);
+            });
+        }
     });
 });
 
