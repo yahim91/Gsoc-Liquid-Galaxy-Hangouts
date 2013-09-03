@@ -71,6 +71,20 @@
                 }
             }
         }
+
+        $('#get-room-box').keyup(function (e) {
+            if (!/^[a-zA-Z0-9._]*$/.test(e.target.value)) {
+                $('#room-error-box div').html("Only alphanumeric, ' _ ' and ' . ' characters are allowed!");
+                $('#room-error-box').css('opacity', '1'); 
+                $('#room-error-box').css('left', '10');
+
+            } else {
+
+                $('#room-error-box').css('left', '-10');
+                $('#room-error-box').css('opacity', '0');
+            }
+            console.log(e.target.value);
+        });
         document.querySelector("#get-user-box").onkeydown = getUserName;
         $('.text-area').autogrow({
             onIncrease: function(newHeight, oldHeight) {
