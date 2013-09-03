@@ -21,7 +21,8 @@
     pendingSlaves,
     userInfo,
     autoJoin,
-    slaveVideoGroup;
+    slaveVideoGroup,
+    roomNameApproved;
 
     	
 
@@ -34,6 +35,8 @@
         pendingSlaves = {};
         userInfo = {role: 'regular'};
         meters = [];
+        roomNameApproved = false;
+        userNameApproved = false;
         audioContext = new AudioContext();
         orientation = screen.width > screen.height ? 'landscape' : 'portrait';
         document.querySelector('#go-button').onclick = function(){
@@ -71,19 +74,31 @@
                 }
             }
         }
+        $('#get-user-box').keyup(function (e) {
+            if (!/^[a-zA-Z0-9._]*$/.test(e.target.value)) {
+                $('#user-error-box div').html("Only alphanumeric, ' _ ' and ' . ' characters are allowed!");
+                $('#user-error-box').css('opacity', '1'); 
+                $('#user-error-box').css('left', '10');
+                userNameApproved = false;
+            } else {
+                userNameApproved = true;
+                $('#user-error-box').css('left', '-10');
+                $('#user-error-box').css('opacity', '0');
+            }
+            console.log(e.target.value);
+        });
 
         $('#get-room-box').keyup(function (e) {
             if (!/^[a-zA-Z0-9._]*$/.test(e.target.value)) {
                 $('#room-error-box div').html("Only alphanumeric, ' _ ' and ' . ' characters are allowed!");
                 $('#room-error-box').css('opacity', '1'); 
                 $('#room-error-box').css('left', '10');
-
+                roomNameApproved = false;
             } else {
-
+                roomNameApproved = true;
                 $('#room-error-box').css('left', '-10');
                 $('#room-error-box').css('opacity', '0');
             }
-            console.log(e.target.value);
         });
         document.querySelector("#get-user-box").onkeydown = getUserName;
         $('.text-area').autogrow({
@@ -331,6 +346,21 @@
     function gotUserRoomNames() {
         userInfo.name = $("#get-user-box").val();
         userInfo.room = $('#get-room-box').val();
+        if (userInfo.name === '') {
+            $('#user-error-box div').html("The user name must be longer!");
+            $('#user-error-box').css('opacity', '1'); 
+            $('#user-error-box').css('left', '10');
+            return;
+        }
+        if (userInfo.room === '') {
+            $('#room-error-box div').html("The room name must be longer!");
+            $('#room-error-box').css('opacity', '1'); 
+            $('#room-error-box').css('left', '10');
+            return;
+        }
+        if (!roomNameApproved || !userNameApproved) {
+            return;
+        }
         document.querySelector(".user-room-input").hidden = true;
         document.querySelector(".message-video").hidden = false;
         getLocalUserMedia({audio:true, video:true, data:true});
