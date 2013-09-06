@@ -336,6 +336,11 @@ html, body {
         top: 0px;
     }
 
+    .user-room-input {
+        position: relative;
+        top: 300px;
+    }
+
     .user input {
         position: absolute;
         border: 1px solid #ddd;
@@ -346,6 +351,18 @@ html, body {
         outline: none;
         margin: auto;
         width: 80%;
+        height: 24px;
+        color: #333;
+        font-size: 18px;
+    }
+
+    .room input {
+        position: absolute;
+        border: 1px solid #ddd;
+
+        box-shadow: none;
+        outline: none;
+        width: 100%;
         height: 24px;
         color: #333;
         font-size: 18px;
@@ -373,9 +390,16 @@ html, body {
     .user {
         position: relative;
         width: 50%;
-        top: 300px;
         height: 24px;
         margin-left: 50px;
+    }
+
+    .room {
+        position: relative;
+        top: 20px;
+        margin-left: 50px;
+        width: 50%;
+        height: 24px;
     }
 
     #go-button {
@@ -393,6 +417,94 @@ html, body {
         position: relative;
         height: 93%;
         overflow-y: auto;
+    }
+
+    .arrow_box_top div {
+        font-family: 'lucida grande',tahoma,verdana,arial,sans-serif;
+        font-size: 15px;
+        padding: 5px;
+        color: red;
+    }
+
+    .arrow_box_top {
+        position: relative;
+        background: #FFFFFF;
+        top: 35px;
+        border-radius: 3px;
+        border: 1px solid #ddd;
+        margin: auto;
+        width: 80%;
+        -webkit-transition: 1s ease-in-out, opacity 1s;
+    }
+
+    .arrow_box_top:after, .arrow_box_top:before {
+        bottom: 100%;
+        border: solid transparent;
+        content: " ";
+        height: 0;
+        width: 0;
+        position: absolute;
+        pointer-events: none;
+    }
+
+    .arrow_box_top:after {
+        border-color: rgba(136, 183, 213, 0);
+        border-bottom-color: white;
+        border-width: 10px;
+        left: 20%;
+        margin-left: -10px;
+    }
+
+    .arrow_box_top:before {
+        border-color: rgba(194, 225, 245, 0);
+        border-bottom-color: #ddd;
+        border-width: 11px;
+        left: 20%;
+        margin-left: -11px;
+    }
+
+    .arrow_box_bottom div {
+        font-family: 'lucida grande',tahoma,verdana,arial,sans-serif;
+        font-size: 15px;
+        padding: 5px;
+        color: red;
+    }
+
+    .arrow_box_bottom {
+        position: relative;
+        background: #FFFFFF;
+        top: -60px;
+        border-radius: 3px;
+        border: 1px solid #ddd;
+        margin: auto;
+        width: 80%;
+        -webkit-transition: 1s ease-in-out, opacity 1s;
+    }
+
+    .arrow_box_bottom:after, .arrow_box_bottom:before {
+        top: 100%;
+        border: solid transparent;
+        content: " ";
+        height: 0;
+        width: 0;
+        position: absolute;
+        pointer-events: none;
+    }
+
+    .arrow_box_bottom:after {
+        border-color: rgba(136, 183, 213, 0);
+        border-top-color: white;
+        border-width: 10px;
+        left: 20%;
+        margin-left: -10px;
+    }
+
+    .arrow_box_bottom:before {
+        border-color: rgba(194, 225, 245, 0);
+        border-top-color: #ddd;
+        border-width: 11px;
+        left: 20%;
+        margin-left: -11px;
     }
     
 }
@@ -458,8 +570,8 @@ html, body {
     overflow: hidden;
 }
 
-#buttons{
-    height: 60%;
+.menu-buttons-hover {
+    background-color: #d6d6d6;
 }
 
 .menu-text {
@@ -511,6 +623,17 @@ html, body {
     z-index: 10;
 }
 
+.tile-video-mute-icon {
+    background: url('assets/microphone-muted.png');
+    top: 0;
+    right: 0;
+    display: inline-block;
+    width: 32px;
+    height: 32px;
+    position: absolute;
+    z-index: 11;
+}
+
 .rotated-tile-video {
     left: 0;
     right: 0;
@@ -553,6 +676,15 @@ html, body {
 .video-tile-caption img {
     cursor: pointer;
     left: 0px;
+}
+
+.user-info span {
+    display: block;
+    text-align: center;
+    width: 100%;
+    padding-top: 10px;
+    font-family: Roboto,arial,sans-serif;
+    font-size: 15px;
 }
 
 .volume-meter {
@@ -607,15 +739,7 @@ html, body {
 
 .media {
     text-align: center;
-    margin-top: 20px;
 }
-#mic {
-    position: relative;
-    height: 36px;
-    width: 36px;
-    border-radius: 5px;
-}
-
 
 /*.user input {
     position: absolute;
@@ -658,10 +782,18 @@ html, body {
     background-color: black;
 }
 
-#camera {
+.media-buttons {
     position: relative;
     width: 36px;
+    height: 36px;
     border-radius: 5px;
+    border: 1px solid #ededed;
+}
+
+
+.media-buttons-hover {
+    border: 1px solid #c6c6c6;
+    background-color: #d6d6d6;
 }
 
 

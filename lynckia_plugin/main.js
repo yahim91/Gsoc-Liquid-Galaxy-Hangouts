@@ -33,7 +33,7 @@
         slaveVideoGroup = {width: $('#slave-screens').width(), screenMaxWidth: 200};
         participants = {};
         pendingSlaves = {};
-        userInfo = {role: 'regular'};
+        userInfo = {role: 'regular', micState: 'mic_unmuted'};
         meters = [];
         roomNameApproved = false;
         userNameApproved = false;
@@ -132,6 +132,12 @@
         }, 1000/60);*/
 
 		var muteMic = document.getElementById('mic');
+        muteMic.onmouseover = function() {
+            this.classList.add('media-buttons-hover');
+        };
+        muteMic.onmouseout = function() {
+            this.classList.remove('media-buttons-hover');
+        };
         muteMic.muted = false;
         muteMic.onclick = function() {
             if (muteMic.muted === false) {
@@ -142,8 +148,11 @@
                     if (localStream.stream.getAudioTracks()[0].onmute === null) {
                         localStream.stream.getAudioTracks()[0].onmute = showMessage('Microphone muted');
                     }
-                    localStream.stream.getAudioTracks()[0].enabled = false;
+                    localStream.stream.getAudioTracks()[0].enabled = false; 
+                    localStream.sendData({from: localStream.getID(), message: {type: 'mic_muted'}});
+                    userInfo.micState = 'mic_muted';
                 }
+                localStream.attributes.muted = true;
             } else {
                 muteMic.muted = false;
                 muteMic.src = "/assets/microphone-mute.png";
@@ -153,11 +162,19 @@
                         localStream.stream.getAudioTracks()[0].onunmute = showMessage('Microphone unmuted');
                     }
                     localStream.stream.getAudioTracks()[0].enabled = true;
+                    localStream.sendData({from: localStream.getID(), message: {type: 'mic_unmuted'}});
+                    userInfo.micState = 'mic_unmuted';
                 }
             }
         }
         
         var muteCamera = document.getElementById('camera');
+        muteCamera.onmouseover = function() {
+            this.classList.add('media-buttons-hover');
+        };
+        muteCamera.onmouseout = function() {
+            this.classList.remove('media-buttons-hover');
+        };
         muteCamera.muted = false;
         muteCamera.onclick = function () {
             if (muteCamera.muted === false) {
@@ -186,6 +203,14 @@
             }
         }
 		startButton = document.getElementById('start-button');
+        startButton.onmouseover = function () {
+            this.classList.add('menu-buttons-hover');
+        }
+
+        startButton.onmouseout = function() {
+            this.classList.remove('menu-buttons-hover');
+        };
+
         startButton.started = false;
         startButton.onclick = start;
         /*attachButton = document.getElementById('attach-to-rig');
@@ -237,6 +262,9 @@
             event.srcElement.parentNode.appendChild(selectMaster);
             event.srcElement.parentNode.appendChild(selectSide);
         };*/
+        if (orientation == 'portrait') {
+            $('.chat-group').width(screen.width - $('.menu').width() - 2);
+        }
 		
 		selectedVideo = document.querySelector('.selectedVideo');
         selectedVideo.onclick = function () {
@@ -271,6 +299,13 @@
             document.body.webkitRequestFullScreen();
         }
 		screenShareButton = document.getElementById('share-screen-button');
+        screenShareButton.onmouseover = function () {
+            this.classList.add('menu-buttons-hover');
+        }
+
+        screenShareButton.onmouseout = function() {
+            this.classList.remove('menu-buttons-hover');
+        };
         screenShareButton.enabled = false;
 		screenShareButton.onclick = function() {
             if (!screenShareButton.enabled) {
@@ -315,6 +350,7 @@
             userInfo.masterId = getUrlParam('masterId');
             userInfo.side = getUrlParam('side');
             userInfo.position = parseInt(getUrlParam('pos'));
+            userInfo.room = getUrlParam('room');
             getLocalUserMedia({screen:true, audio:true, video:true, data:true});
         } else {
             getLocalUserMedia({audio:true, video:true, data:true});
@@ -361,6 +397,8 @@
         if (!roomNameApproved || !userNameApproved) {
             return;
         }
+        $('#user-info-name').html(userInfo.name);
+        $('#user-info-room').html(userInfo.room);
         document.querySelector(".user-room-input").hidden = true;
         document.querySelector(".message-video").hidden = false;
         getLocalUserMedia({audio:true, video:true, data:true});
@@ -673,6 +711,11 @@
         /*volumeMeter = document.createElement('canvas');
         volumeMeter.className = 'volume-meter';
         volumeMeter.id = 'meter' + configuration.participant.userid;*/
+        var muteIcon = document.createElement('div');
+        muteIcon.id = 'mute-icon-' + configuration.participant.streams[0].getID();
+        muteIcon.className = 'tile-video-mute-icon';
+        muteIcon.style.display = 'none';
+        container.appendChild(muteIcon);
         container.appendChild(mediaElement);
         var user_name = document.createElement('div');
         user_name.className = 'video-user-name';
@@ -906,6 +949,7 @@
                     if (participants[userid].role === 'master') {
                         participants[userid].handleSlaveVideos();
                     }
+                    participants[remoteUserId].sendMessage({type: 'mic_state'});
                 } else {
                     participants[roomEvent.stream.getAttributes().userid].addStream(roomEvent.stream);
                 }
@@ -1218,7 +1262,7 @@
             return;
         }
         var message = data.message;
-        console.log('message recv from: ' + data.from);
+        console.log('message recv from: ' + data.from + ' ' + JSON.stringify(message));
         if (message.type == 'request_accepted') {
             this.galaxyConnectionState = 'connected';
             showMessage('Connected to master ' + data.from);
@@ -1237,6 +1281,15 @@
             displayVideoFragment(message.index, message.nrScreens);
         } else if (message.type == 'cancel_fullscreen') {
             document.onwebkitfullscreenchange();
+        } else if (message.type == 'mic_muted') {
+            $('#mute-icon-' + this.userid).css('display', 'block');
+        } else if (message.type == 'mic_unmuted') {
+            $('#mute-icon-' + this.userid).css('display', 'none');
+        } else if (message.type == 'mic_state') {
+            if (participants[data.from]) {
+                participants[data.from].sendMessage({type: userInfo.micState});
+                participants[data.from].sendMessage({type: 'mic_state'});
+            }
         }
     };
 

@@ -90,6 +90,7 @@ app.get('/getUsers/:room', function (req, res) {
     "use strict";
     var room = req.params.room;
     N.API.getUsers(room, function (users) {
+        console.log('Users request: ' + users);
         res.send(users);
     });
 });
