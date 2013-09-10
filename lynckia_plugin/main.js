@@ -30,7 +30,7 @@
         screenShared = false;
         ready = false;
         autoJoin = false;
-        slaveVideoGroup = {width: $('#slave-screens').width(), screenMaxWidth: 200};
+        slaveVideoGroup = {width: $('#slave-screens').width(), landscapeWidth: 200, portraitWidth: 86};
         participants = {};
         pendingSlaves = {};
         userInfo = {role: 'regular', micState: 'mic_unmuted'};
@@ -312,7 +312,7 @@
             if (!screenShareButton.enabled) {
                 return;
             }
-			screenStream = Erizo.Stream({screen: true, video: true, data: true, attributes: {userid: localStream.getID(), type: 'screen', role:'regular', orientation: orientation}});
+			screenStream = Erizo.Stream({screen: {orientation: orientation}, video: true, data: true, attributes: {userid: localStream.getID(), type: 'screen', role:'regular', orientation: orientation}});
             screenStream.init();
             screenStream.addEventListener('access-accepted', function(event) {
                 participants[userid].addStream(screenStream);
@@ -352,7 +352,7 @@
             userInfo.side = getUrlParam('side');
             userInfo.position = parseInt(getUrlParam('pos'));
             userInfo.room = getUrlParam('room');
-            getLocalUserMedia({screen:true, audio:true, video:true, data:true});
+            getLocalUserMedia({screen:{orientation: orientation}, audio:true, video:true, data:true});
         } else {
             getLocalUserMedia({audio:true, video:true, data:true});
         }
@@ -423,7 +423,7 @@
 
 	// Get user media
 	function getLocalUserMedia(media) {
-        localStream = Erizo.Stream({screen: media.screen,
+        localStream = Erizo.Stream({screen: media.screen ? {orientation: orientation} : false,
                                    audio:media.audio,
                                    video: media.video,
                                    data: media.data, 
@@ -622,6 +622,9 @@
 		mediaElement.muted = configuration.muted;
 		mediaElement.play();
 		mediaElement.onclick = function() {
+            if (selectedVideo.classList.contains('central-video-slave-screen-portrait')) {
+                selectedVideo.classList.remove('central-video-slave-screen-portrait');
+            }
             if (slaveVideoGroup.selectedId !== undefined) {
                 slaveVideoGroup.selectedDiv.classList.toggle('video-selected');
                 slaveVideoGroup.selectedId = undefined;
@@ -1111,17 +1114,22 @@
         document.body.webkitRequestFullScreen();
     };
 
-    function addSlaveScreen(stream, name) {
+    function addSlaveScreen(stream, name, orientation) {
         var newWidth = slaveVideoGroup.width / ($('#slave-screens').children().length + 1);
         var div = document.createElement('div');
+        var standardWidth = orientation == 'landscape' ? slaveVideoGroup.landscapeWidth : slaveVideoGroup.portraitWidth;
         
-        if (newWidth < 200) {
+        if (newWidth < standardWidth) {
             $('#slave-screens').children('div').each(function() {
                 this.style.width = newWidth;
             });
             div.style.width = newWidth;
         }
-        var currentScreenWidth = Math.min(slaveVideoGroup.screenMaxWidth, newWidth);
+        if (orientation === 'landscape') {
+            var currentScreenWidth = Math.min(slaveVideoGroup.landscapeWidth, newWidth);
+        } else {
+            var currentScreenWidth = Math.min(slaveVideoGroup.portraitWidth, newWidth);
+        }
         var offset = (slaveVideoGroup.width - currentScreenWidth * ($('#slave-screens').children('div').length + 1))/2;
         offset += ($('#slave-screens').children('div').length) * currentScreenWidth;
         $('#slave-screens').children('div').each(function() {
@@ -1130,8 +1138,11 @@
         });
         div.style.left = 'auto';
         div.style.right = offset;
-
-        div.className = 'slave-screen';
+        if (orientation === 'landscape') {
+            div.className = 'slave-screen-landscape';
+        } else {
+            div.className = 'slave-screen-portrait';
+        }
         div.id = 'slave-screen-' + name;
         var slaveScreen = document.createElement('video');
         slaveScreen.onclick = function() {
@@ -1143,6 +1154,9 @@
             slaveVideoGroup.selectedDiv = this;
             selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? stream.stream
                             : webkitURL.createObjectURL(stream.stream);
+            if (orientation === 'portrait') {
+                selectedVideo.classList.add('central-video-slave-screen-portrait');
+            }
         }
         slaveScreen.className = 'tile-video';
         slaveScreen.src = webkitURL.createObjectURL(stream.stream);
@@ -1160,7 +1174,7 @@
 
     function removeSlaveScreen(id) {
         var newWidth = slaveVideoGroup.width / ($('#slave-screens').children().length - 1);
-        var currentScreenWidth = Math.min(slaveVideoGroup.screenMaxWidth, newWidth);
+        var currentScreenWidth = Math.min(slaveVideoGroup.landscapeWidth, newWidth);
         var offset = (slaveVideoGroup.width - currentScreenWidth * ($('#slave-screens').children('div').length - 1))/2;
         offset += ($('#slave-screens').children('div').length - 2) * currentScreenWidth;
         $('#slave-screen-' + id).remove();
@@ -1269,7 +1283,7 @@
         }
         for (var i in this.slaves) {
             if (this.slaves[i].visible === false) {
-                addSlaveScreen(this.slaves[i].streams[0], i);
+                addSlaveScreen(this.slaves[i].streams[0], i, this.streams[0].attributes.orientation);
                 this.slaves[i].visible = true;
             }
         }

@@ -161,7 +161,11 @@ html, body {
         bottom: 100px;
     }
 
-    .slave-screen {
+    .central-video-slave-screen-portrait {
+       width: 256px; 
+    }
+
+    .slave-screen-landscape {
         position: absolute;
         width: 199px;
         height: 112px;
@@ -169,6 +173,14 @@ html, body {
         display: inline-block;
     }
 
+    .slave-screen-portrait {
+        position: absolute;
+        width: 86px;
+        height: 150px;
+        background-color:black;
+        display: inline-block;
+    }
+    
     .conversation {
         position: relative;
         height: 381px;
