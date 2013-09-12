@@ -38,7 +38,7 @@
         roomNameApproved = false;
         userNameApproved = false;
         audioContext = new AudioContext();
-        orientation = screen.width > screen.height ? 'landscape' : 'portrait';
+        orientation = document.width > document.height ? 'landscape' : 'portrait';
         document.querySelector('#go-button').onclick = function(){
             gotUserRoomNames();
         }
@@ -264,7 +264,7 @@
             event.srcElement.parentNode.appendChild(selectSide);
         };*/
         if (orientation == 'portrait') {
-            $('.chat-group').width(screen.width - $('.menu').width() - 2);
+            $('.chat-group').width(document.width - $('.menu').width() - 2);
         }
 		
 		selectedVideo = document.querySelector('.selectedVideo');
@@ -352,8 +352,11 @@
             userInfo.side = getUrlParam('side');
             userInfo.position = parseInt(getUrlParam('pos'));
             userInfo.room = getUrlParam('room');
+            userInfo.nodeGroupSize = parseInt(getUrlParam('size'));
+            userInfo.leftGroupSize = parseInt(getUrlParam('leftsize'));
             getLocalUserMedia({screen:{orientation: orientation}, audio:true, video:true, data:true});
         } else {
+            userInfo.room = getUrlParam('room');
             getLocalUserMedia({audio:true, video:true, data:true});
         }
     }
@@ -478,6 +481,9 @@
     function removeVideoTag(stream) {
         var streamId = stream.getID();
         var toBeRemoved = document.getElementById(streamId);
+        if (!toBeRemoved) {
+            return;
+        }
 		toBeRemoved.parentNode.removeChild(toBeRemoved);
 		if (selectedVideo.videoId === streamId) {
 			selectedVideo[browser === 'firefox' ? 'mozSrcObject' : 'src'] = browser === 'firefox' ? localStream.stream
@@ -590,7 +596,8 @@
         displayOnLG.title = 'Display video on Liquid Galaxy';
 
         displayOnLG.onclick = function() {
-            if (orientation !== 'portrait' || participants[userid].role !== 'master') {
+            //return;
+            if (orientation !== 'portrait' || userInfo.role === 'regular') {
                 return;
             }
             mediaElement.onclick();
@@ -915,14 +922,13 @@
                         addConversationItem(createConversationItem(remoteUserId, 'left the room', 'notification'));
                         var slave = participants[remoteUserId].isDisplayedBy;
                         delete participants[remoteUserId];
-                        if (slave && userInfo.role === 'regular') {
-                            participants[userid].slaves[slave].currentDisplay = null;
+                        if (slave && userInfo.role === 'regular' || userInfo.role === 'master') {
+                            if (slave === 'local') {
+                                participants[userid].currentDisplay = null;
+                            } else {
+                                participants[userid].slaves[slave].currentDisplay = null;
+                            }
                         }
-                        /*if (attachButton.pressed) {
-                            var selectMaster = document.getElementById('select-master');
-                            var toBeRemoved = selectMaster.querySelector('#opt_' + remoteUserId);
-                            selectMaster.removeChild(selectMaster.querySelector('#opt_' + remoteUserId));
-                        }*/
                     }
                 } else {
                     participants[attributes.userid].removeStream(roomEvent.stream);
@@ -957,8 +963,8 @@
                         roomEvent.stream.attributes = event.msg;
                     });
                     participants[remoteUserId].addStream(roomEvent.stream);
-                    if (((participants[userid].role === 'regular' || participants[userid].role === 'master') ||
-                    (participants[userid].idToDisplay === remoteUserId)) && !participants[remoteUserId].visible) {
+                    if (((participants[userid].role === 'regular' /*|| participants[userid].role === 'master'*/) ||
+                    (participants[userid].idToDisplay === remoteUserId)) && !participants[remoteUserId].visible ) {
                         participants[remoteUserId].show({muted: false});
                     }
                     roomEvent.stream.addEventListener('stream-data', function(event){
@@ -997,6 +1003,7 @@
                 participants[userid].slaves[remoteUserId] = slave;
                 participants[userid].slaveSize++;
                 slave.sendMessage({type: 'request_accepted'});
+                userInfo.role = 'master';
                 participants[userid].handleSlaveVideos();
                 
                 addConversationItem(createConversationItem(remoteUserId, 'node joined', 'notification'));
@@ -1161,7 +1168,7 @@
         slaveScreen.className = 'tile-video';
         slaveScreen.src = webkitURL.createObjectURL(stream.stream);
         slaveScreen.play();
-        slaveScreen.muted = true;
+        //slaveScreen.muted = true;
         div.appendChild(slaveScreen);
         if (name) {
             var nameDiv = document.createElement('div');
@@ -1314,19 +1321,50 @@
         } else if (message.type == 'chat') {
             var item = createConversationItem(data.from, message.load, 'message');
             addConversationItem(item);
+        } else if (message.type == 'slave_display_lg') {
+            for (var i in this.slaves) {
+                if (i === data.from) {
+                    continue;
+                }
+                this.slaves[i].sendMessage({
+                    type: 'display_lg',
+                    streamId: message.id
+                });
+            }
+            displayVideoFragment(0 + toAdd, this.slaveSize + 1);
         } else if (message.type == 'display_lg'){
             if (!participants[message.streamId]) {
                 room.subscribe(room.getStreamsByAttribute('userid', message.streamId)[0]);
             } else if (!participants[message.streamId].visible) {
+                // usually for the master stream that already exists
                 participants[message.streamId].show({'muted': true, 'participant': participants[message.streamId]});
             }
-            displayVideoFragment(message.index, message.nrScreens);
+            if (userInfo.position === 'left') {
+                displayVideoFragment(-userInfo.position + userInfo.leftGroupSize, userInfo.nodeGroupSize);
+            } else {
+                displayVideoFragment(userInfo.position + userInfo.leftGroupSize, userInfo.nodeGroupSize);
+            }
         } else if (message.type == 'cancel_fullscreen') {
             document.onwebkitfullscreenchange();
         } 
     };
 
     Participant.prototype.handleSlaveVideos = function () {
+        if (!this.currentDisplay) {
+            for (var j in participants) {
+                if (j == userid) {
+                    continue;
+                }
+                if (!participants[j].isDisplayedBy) {
+                    this.currentDisplay = j;
+                    participants[j].isDisplayedBy = userid;
+                    if (!participants[j].isVisible) {
+                        participants[j].show({'muted': true, 'participant': participants[j]});
+                    }
+                }
+            }
+        }
+
         for (var i in this.slaves) {
             if(!this.slaves[i].currentDisplay) {
                 for (var j in participants) {
@@ -1345,13 +1383,25 @@
     }
 
     Participant.prototype.displayOnLG = function(id) {
-        if (participants[userid].role !== 'master') {
-            return;
+        if (userInfo.role === 'master') {
+            var toAdd = -(this.leftSlaveNumber + 1);
+            for (var i in this.slaves) {
+                this.slaves[i].sendMessage({
+                    type: 'display_lg',
+                    streamId: id
+                });
+            }
+            displayVideoFragment(toAdd, this.slaveSize + 1);
+        } else {
+            if (userInfo.side === 'left') {
+                displayVideoFragment(-userInfo.position + userInfo.leftGroupSize, userInfo.nodeGroupSize);
+            } else {
+                displayVideoFragment(userInfo.position + userInfo.leftGroupSize, userInfo.nodeGroupSize);
+            }
+            participants[userInfo.masterId].sendMessage({
+                type: 'slave_display_lg',
+                streamId: id
+            });
         }
-        var toAdd = -(this.leftSlaveNumber + 1);
-        for (var i in this.slaves) {
-            this.slaves[i].sendMessage({type: 'display_lg', index: this.slaves[i].index + toAdd, nrScreens: this.slaveSize + 1, streamId: id});
-        }
-        displayVideoFragment(0 + toAdd, this.slaveSize + 1);
     };
 }());
