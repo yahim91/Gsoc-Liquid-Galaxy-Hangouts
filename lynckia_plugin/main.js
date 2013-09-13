@@ -901,7 +901,7 @@
                 }
             }
         });
-        
+
         room.addEventListener('stream-removed', function(roomEvent) {
             if (roomEvent.stream.getID() === localStream.getID()) {
                 return;
@@ -964,8 +964,17 @@
                     });
                     participants[remoteUserId].addStream(roomEvent.stream);
                     if (((participants[userid].role === 'regular' /*|| participants[userid].role === 'master'*/) ||
-                    (participants[userid].idToDisplay === remoteUserId)) && !participants[remoteUserId].visible ) {
-                        participants[remoteUserId].show({muted: false});
+                    (userInfo.masterId && userInfo.masterId !== remoteUserId)) && !participants[remoteUserId].visible ) {
+                        if (userInfo.displayFullScreenId === remoteUserId) {
+                            participants[remoteUserId].show({muted: true});
+                            if (userInfo.position === 'left') {
+                                displayVideoFragment(-userInfo.position + userInfo.leftGroupSize, userInfo.nodeGroupSize);
+                            } else {
+                                displayVideoFragment(userInfo.position + userInfo.leftGroupSize, userInfo.nodeGroupSize);
+                            }
+                        } else {
+                            participants[remoteUserId].show({muted: false});
+                        }
                     }
                     roomEvent.stream.addEventListener('stream-data', function(event){
                         participants[remoteUserId].onMessage(event.msg);
@@ -1216,6 +1225,11 @@
         this.visible = true;
     };
 
+    Participant.prototype.hide = function () {
+        removeVideoTag(this.streams[0]);
+        this.visible = false;
+    };
+
     Participant.prototype.showMuteIcon = function() {
         if (!this.visible) {
             return;
@@ -1333,19 +1347,30 @@
             }
             displayVideoFragment(0 + toAdd, this.slaveSize + 1);
         } else if (message.type == 'display_lg'){
+            userInfo.displayFullScreenId = message.streamId;
             if (!participants[message.streamId]) {
                 room.subscribe(room.getStreamsByAttribute('userid', message.streamId)[0]);
             } else if (!participants[message.streamId].visible) {
                 // usually for the master stream that already exists
                 participants[message.streamId].show({'muted': true, 'participant': participants[message.streamId]});
-            }
-            if (userInfo.position === 'left') {
-                displayVideoFragment(-userInfo.position + userInfo.leftGroupSize, userInfo.nodeGroupSize);
-            } else {
-                displayVideoFragment(userInfo.position + userInfo.leftGroupSize, userInfo.nodeGroupSize);
+                if (userInfo.position === 'left') {
+                    displayVideoFragment(-userInfo.position + userInfo.leftGroupSize, userInfo.nodeGroupSize);
+                } else {
+                    displayVideoFragment(userInfo.position + userInfo.leftGroupSize, userInfo.nodeGroupSize);
+                }
             }
         } else if (message.type == 'cancel_fullscreen') {
             document.onwebkitfullscreenchange();
+            if (userInfo.displayFullScreenId && userInfo.displayFullScreenId !== userInfo.masterId && 
+                participants[userid].idToDisplay !== userInfo.displayFullScreenId) {
+                var toBeDeleted = participants[userInfo.displayFullScreenId].streams[0];
+                room.unsubscribe(toBeDeleted);
+                participants[userInfo.displayFullScreenId].removeStream(toBeDeleted);
+                delete participants[userInfo.displayFullScreenId];
+            } else if (userInfo.displayFullScreenId === userInfo.masterId) {
+                participants[userInfo.masterId].hide();
+            }
+            userInfo.displayFullScreenId = null;
         } 
     };
 
