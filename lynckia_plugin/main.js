@@ -71,6 +71,7 @@
                     selectedVideo.style.top = '';
                     selectedVideo.style.height = '';
                     selectedVideo.style.width = '';
+                    $('.central-icons').css('left', 0).css('top', 25);
                 }
             }
         }
@@ -296,7 +297,7 @@
                     selectedVideo.style.top = '0px';
                 }
             }
-
+            $('.central-icons').css('left', 'auto').css('top', 'auto');
             document.body.webkitRequestFullScreen();
         }
 		screenShareButton = document.getElementById('share-screen-button');
@@ -356,6 +357,7 @@
             userInfo.leftGroupSize = parseInt(getUrlParam('leftsize'));
             getLocalUserMedia({screen:{orientation: orientation}, audio:true, video:true, data:true});
         } else {
+            userInfo.role = type;
             userInfo.room = getUrlParam('room');
             getLocalUserMedia({audio:true, video:true, data:true});
         }
@@ -652,9 +654,11 @@
                 if (mediaElement.orientation == 'portrait' && !selectedVideo.classList.contains('portrait-central-video')) {
                     selectedVideo.classList.add('portrait-central-video');
                     selectedVideo.style.webkitTransform = 'rotate(' + mediaElement.rotation + 'deg) scale(0.8)';
+                    $('.selectedVideo').css('top', -$('.selectedVideo').position()['top'] + 25);
                 } else if (mediaElement.orientation == 'landscape' && selectedVideo.classList.contains('portrait-central-video')) {
                     selectedVideo.classList.toggle('portrait-central-video');
                     selectedVideo.style.webkitTransform = 'rotate(' + mediaElement.rotation + 'deg)';
+                    $('.selectedVideo').css('top', '');
                 }
             } else {
                 if (mediaElement.orientation == 'landscape') {
@@ -673,6 +677,11 @@
                 }
             }
 			selectedVideo.videoId = configuration.participant.userid;
+            if (!configuration.participant.streams[0].attributes.muted) {
+                $('#mute-icon-central').css('display', 'none');
+            } else {
+                $('#mute-icon-central').css('display', 'block');
+            }
 		};
 
 		mediaElement.replaceStream = function(_stream) {
@@ -705,16 +714,26 @@
            
 			if(selectedVideo.videoId === configuration.participant.userid) {
                 mediaElement.onclick();
+                if (mediaElement.orientation == 'portrait') {
+                    $('.central-icons').css('width', $('.selectedVideo').height() * 0.8);
+                } else {
+                    $('.central-icons').css('width', $('.selectedVideo').width() + 2);
+                }
+
             }
         }
+
+        var volumeMutedIcon = document.createElement('div');
  
         muteButton.onclick = function () {
             if (mediaElement.muted === false) {
                 mediaElement.muted = true;
                 muteButton.src = '/assets/muted.png';
+                volumeMutedIcon.style.display = 'block';
             } else {
                 mediaElement.muted = false;
                 muteButton.src = '/assets/unmuted.png';
+                volumeMutedIcon.style.display = 'none';
             } 
             muteButton.muted = mediaElement.muted;
         }
@@ -732,7 +751,23 @@
         if (!configuration.participant.streams[0].attributes.muted) {
             muteIcon.style.display = 'none';
         }
-        container.appendChild(muteIcon);
+
+        var volumeMutedIcon = document.createElement('div');
+        if (configuration.participant.userid !== 'local') {
+            volumeMutedIcon.id = 'volume-icon-' + configuration.participant.streams[0].getID();
+        } else {
+            volumeMutedIcon.id = 'volume-icon-local';
+        }
+        
+        volumeMutedIcon.className = 'tile-video-volume-muted-icon';
+        if (!muteButton.muted) {
+            volumeMutedIcon.style.display = 'none';
+        }
+        var iconContainer = document.createElement('div');
+        iconContainer.className = 'tile-video-icon-container';
+        iconContainer.appendChild(volumeMutedIcon);
+        iconContainer.appendChild(muteIcon);
+        container.appendChild(iconContainer);
         container.appendChild(mediaElement);
         var user_name = document.createElement('div');
         user_name.className = 'video-user-name';
@@ -909,13 +944,13 @@
 
             var attributes = roomEvent.stream.getAttributes();
             var remoteUserId = roomEvent.stream.getID();
-            if (attributes.role === 'regular') {
+            if (attributes.role === 'regular' || attributes.role === 'master') {
                 if (attributes.type === 'video') {
                     if (!participants[remoteUserId]) {
                         return;
                     }
-                    if(participants[userid].role === 'slave' && remoteUserId === participants[userid].masterId) {
-                        location.reload();
+                    if(userInfo.role === 'slave' && remoteUserId === userInfo.masterId) {
+                        location.replace('https://webrtc.liquidgalaxy.org:3004');
                     }
                     participants[remoteUserId].removeStream(roomEvent.stream);
                     if (!participants[remoteUserId].hasStreams()) {
@@ -945,7 +980,7 @@
         room.addEventListener('stream-subscribed', function(roomEvent) {
             var attributes = roomEvent.stream.getAttributes();
             var remoteUserId = roomEvent.stream.getID();
-            if (attributes.role === 'regular') {
+            if (attributes.role === 'regular' || attributes.role === 'master') {
                 if (attributes.type === 'video') {
                     if (participants[remoteUserId] === undefined) {
                         participants[remoteUserId] = new Participant({
@@ -999,6 +1034,9 @@
                 var slave = new Participant({
                     userid: remoteUserId,
                     role: 'slave'
+                });
+                roomEvent.stream.addEventListener('stream-data', function(event){
+                        slave.onMessage(event.msg);
                 });
                 slave.addStream(roomEvent.stream);
                 participants[userid].role = 'master';
@@ -1075,7 +1113,7 @@
         });*/
         room.publish(localStream);
         
-        if (localStream.attributes.role === 'regular') {
+        if (localStream.attributes.role === 'regular' || localStream.attributes.role === 'master') {
             subscribeToStreams(streams);
         } else {
             var master = room.getStreamsByAttribute('userid', localStream.attributes.masterId)[0];
@@ -1234,7 +1272,10 @@
         if (!this.visible) {
             return;
         }
-        $('#mute-icon-' + this.userid).css('display', 'block'); 
+        $('#mute-icon-' + this.userid).css('display', 'block');
+        if (selectedVideo.videoId == this.userid) {    
+            $('#mute-icon-central').css('display', 'block');
+        }
     };
 
     Participant.prototype.hideMuteIcon = function() {
@@ -1242,6 +1283,9 @@
             return;
         }
         $('#mute-icon-' + this.userid).css('display', 'none'); 
+        if (selectedVideo.videoId == this.userid) {    
+            $('#mute-icon-central').css('display', 'none');
+        }
     };
     
     Participant.prototype.addStream = function(stream) {
@@ -1336,14 +1380,25 @@
             var item = createConversationItem(data.from, message.load, 'message');
             addConversationItem(item);
         } else if (message.type == 'slave_display_lg') {
-            for (var i in this.slaves) {
+            for (var i in participants[userid].slaves) {
                 if (i === data.from) {
                     continue;
                 }
-                this.slaves[i].sendMessage({
+                participants[userid].slaves[i].sendMessage({
                     type: 'display_lg',
-                    streamId: message.id
+                    streamId: message.streamId
                 });
+            }
+            
+            userInfo.displayFullScreenId = message.streamId;
+            if (!participants[message.streamId]) {
+                room.subscribe(room.getStreamsByAttribute('userid', message.streamId)[0]);
+            } else if (!participants[message.streamId].visible) {
+                if (userInfo.position === 'left') {
+                    displayVideoFragment(-userInfo.position + userInfo.leftGroupSize, userInfo.nodeGroupSize);
+                } else {
+                    displayVideoFragment(userInfo.position + userInfo.leftGroupSize, userInfo.nodeGroupSize);
+                }
             }
             displayVideoFragment(0 + toAdd, this.slaveSize + 1);
         } else if (message.type == 'display_lg'){
@@ -1384,7 +1439,7 @@
                     this.currentDisplay = j;
                     participants[j].isDisplayedBy = userid;
                     if (!participants[j].isVisible) {
-                        participants[j].show({'muted': true, 'participant': participants[j]});
+                        participants[j].show({'muted': false, 'participant': participants[j]});
                     }
                 }
             }

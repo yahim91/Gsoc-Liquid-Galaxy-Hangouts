@@ -9,11 +9,11 @@ html, body {
         height: 452px;
         width: 800px;
         display: block;
-        border: 2px solid #777;
-        left: 0;
-        right: 0;
         top: 25px;
+        right: 0px;
+        left: 0px;
         margin: auto;
+        border: 2px solid #777;
         z-index: 13;
         background-color: black;
     }
@@ -103,7 +103,6 @@ html, body {
 
     .portrait-central-video {
         -webkit-transform-origin: 50% 50%;
-        bottom: 0;
         top: 0;
     }
     
@@ -273,6 +272,16 @@ html, body {
         border-width: 11px;
         left: 20%;
         margin-left: -11px;
+    }
+    .central-icons {
+        display: block;
+        position: absolute;
+        margin: auto;
+        right: 0;
+        left: 0;
+        top: 25;
+        width: 802px;
+        height: 600px;
     }
 }
 
@@ -637,14 +646,27 @@ html, body {
 
 .tile-video-mute-icon {
     background: url('assets/microphone-muted.png');
-    top: 0;
     right: 0;
-    display: inline-block;
     width: 32px;
     height: 32px;
-    position: absolute;
+    position: relative;
     z-index: 11;
 }
+
+.tile-video-volume-muted-icon {
+    background: url('assets/muted-red-icon.png');
+    right: 0;
+    width: 32px;
+    height: 32px;
+    position: relative;
+    z-index: 11;
+}
+
+.tile-video-icon-container {
+    right: 0;
+    position: absolute
+}
+
 
 .rotated-tile-video {
     left: 0;
@@ -677,7 +699,11 @@ html, body {
     width: 113%;
 }
 
-.slave-screen:hover .video-user-name {
+.slave-screen-landscape:hover .video-user-name {
+    height: 16px;
+}
+
+.slave-screen-portrait:hover .video-user-name {
     height: 16px;
 }
 
