@@ -52,6 +52,9 @@
                         selectedVideo.style.top = '';
                         selectedVideo.style.bottom = '';
                         selectedVideo.style.left = '';
+                        $('.central-icons').css('left', -250).css('width', $('.selectedVideo').height());
+                        $('.central-icons').css('top', $('.selectedVideo').position()['top']);
+                        
                     } else {
                         selectedVideo.style.webkitTransform = selectedVideo.style.webkitTransform.split(' ')[0] + 'scale(0.7)';
                         selectedVideo.style.webkitTransformOrigin = 'center';
@@ -60,6 +63,8 @@
                         selectedVideo.style.width = '';
                         selectedVideo.style.height = '';
                         selectedVideo.style.margin = '';
+                        $('.central-icons').css('left', -250).css('width', $('.selectedVideo').width() * 0.7);
+                        $('.central-icons').css('top', $('.selectedVideo').position()['top']);
                         for (var i in participants[userid].slaves) {
                             participants[userid].slaves[i].sendMessage({type:'cancel_fullscreen'});
                         }
@@ -663,6 +668,8 @@
             } else {
                 if (mediaElement.orientation == 'landscape') {
                     selectedVideo.style.webkitTransform = 'rotate(' + mediaElement.rotation + 'deg) scale(0.7)';
+                    $('.central-icons').css('width', $('.selectedVideo').width() * 0.7);
+                    $('.central-icons').css('top', $('.selectedVideo').position()['top']);
                 } else {
                     selectedVideo.style.webkitTransform = 'rotate(' + mediaElement.rotation + 'deg)';
                 }
@@ -714,10 +721,20 @@
            
 			if(selectedVideo.videoId === configuration.participant.userid) {
                 mediaElement.onclick();
-                if (mediaElement.orientation == 'portrait') {
-                    $('.central-icons').css('width', $('.selectedVideo').height() * 0.8);
+                if (orientation == 'landscape') {
+                    if (mediaElement.orientation == 'portrait') {
+                        $('.central-icons').css('width', $('.selectedVideo').height() * 0.8);
+                    } else {
+                        $('.central-icons').css('width', $('.selectedVideo').width() + 2);
+                    }
                 } else {
-                    $('.central-icons').css('width', $('.selectedVideo').width() + 2);
+                    if (mediaElement.orientation == 'portrait') {
+                        $('.central-icons').css('width', $('.selectedVideo').height());
+                        $('.central-icons').css('top', $('.selectedVideo').position()['top']);
+                    } else {
+                        $('.central-icons').css('width', $('.selectedVideo').width() * 0.7);
+                        $('.central-icons').css('top', $('.selectedVideo').position()['top']);
+                    }
                 }
 
             }

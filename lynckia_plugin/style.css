@@ -297,7 +297,7 @@ html, body {
         right: 0;
         top: 180px;
         margin: auto;
-        z-index: 11;
+        z-index: 12;
         background-color: black;
         -webkit-transform: rotate(-90deg);
         -webkit-transform-origin: center;
@@ -526,6 +526,15 @@ html, body {
         border-width: 11px;
         left: 20%;
         margin-left: -11px;
+    }
+
+    .central-icons {
+        display: block;
+        position: absolute;
+        margin: auto;
+        right: 0;
+        left: -250;
+        top: 25;
     }
     
 }
