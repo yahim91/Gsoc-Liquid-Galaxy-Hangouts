@@ -107,14 +107,6 @@
             }
         });
         document.querySelector("#get-user-box").onkeydown = getUserName;
-        $('.text-area').autogrow({
-            onIncrease: function(newHeight, oldHeight) {
-                $('.conversation').css('height', parseInt($('.conversation').css('height')) - parseInt(Math.abs(newHeight - oldHeight)/10) * 13);
-            },
-            onDecrease: function(newHeight, oldHeight) {
-                $('.conversation').css('height', parseInt($('.conversation').css('height')) + parseInt(Math.abs(newHeight - oldHeight)/10) * 13);
-            }
-        });
         document.querySelector('.text-area').onkeydown = sendChatMessage;
         document.querySelector('.text-area').onkeypress = function (e) {
             if (e.which === 13) {
@@ -384,6 +376,17 @@
 		}
 	}
 
+    function setAutoGrow() {
+        $('.text-area').autogrow({
+            onIncrease: function(newHeight, oldHeight) {
+                $('.conversation').css('height', parseInt($('.conversation').css('height')) - parseInt(Math.abs(newHeight - oldHeight)/10) * 13);
+            },
+            onDecrease: function(newHeight, oldHeight) {
+                $('.conversation').css('height', parseInt($('.conversation').css('height')) + parseInt(Math.abs(newHeight - oldHeight)/10) * 13);
+            }
+        });
+    };
+
     function getUserName(e) {
         if (e.keyCode === 13) {
            //gotUserRoomNames(); 
@@ -415,6 +418,7 @@
         getLocalUserMedia({audio:true, video:true, data:true});
         $('.left-sidebar').css('display', 'block');
         $('.right-sidebar').css('display', 'block');
+        setAutoGrow();
     }
     
     function sendChatMessage(e) {

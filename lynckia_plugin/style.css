@@ -370,8 +370,10 @@ html, body {
     }
 
     .user-room-input {
-        position: relative;
-        top: 300px;
+        position: absolute;
+        margin: auto;
+        height: 24px;
+        left: 50%;
     }
 
     .user input {
@@ -422,17 +424,18 @@ html, body {
 
     .user {
         position: relative;
-        width: 50%;
+        width: 70%;
         height: 24px;
-        margin-left: 50px;
+        margin-left: -35%;
+        top: 150px;
     }
 
     .room {
         position: relative;
-        top: 20px;
-        margin-left: 50px;
-        width: 50%;
+        top: 170px;
+        width: 70%;
         height: 24px;
+        margin-left: -35%;
     }
 
     #go-button {
@@ -547,6 +550,17 @@ html, body {
         right: 0;
         left: -250;
         top: 25;
+    }
+    
+    .homepage-image {
+        background: url('assets/homepage-centralpark.png');
+        height: 412;
+        width: 839;
+        position: relative;
+        left: 0;
+        right: 0;
+        margin-left: -50%;
+        -webkit-transform: scale(0.8);
     }
     
 }
@@ -769,22 +783,6 @@ html, body {
 .media {
     text-align: center;
 }
-
-/*.user input {
-    position: absolute;
-    border: 1px solid #ddd;
-    top: 300px;
-    right: 0px;
-    left: 0px;
-
-    box-shadow: none;
-    outline: none;
-    margin: auto;
-    width: 40%;
-    height: 24px;
-    color: #333;
-    font-size: 18px;
-}*/
 
 .button-disabled {
     color: rgb(160, 157, 157);
