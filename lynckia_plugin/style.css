@@ -108,8 +108,6 @@ html, body {
     
     .user-room-input {
         position: relative;
-        width: 50%;
-        top: 300px;
         height: 24px;
         margin: auto;
     }
@@ -117,14 +115,17 @@ html, body {
     .user {
         position: relative;
         height: 24px;
+        top: 400px;
+        width: 50%;
         margin: auto;
     }
 
     .room {
         position: relative;
         height: 24px;
+        top: 420px;
+        width: 50%;
         margin: auto;
-        top: 20px;
     }
 
     .room input {
@@ -282,6 +283,17 @@ html, body {
         top: 25;
         width: 802px;
         height: 600px;
+    }
+
+    .homepage-image {
+        background: url('assets/homepage-centralpark.png');
+        height: 412;
+        width: 839;
+        position: absolute;
+        left: 0;
+        right: 0;
+        margin: auto;
+        -webkit-transform: scale(0.8);
     }
 }
 
@@ -560,36 +572,6 @@ html, body {
 	position: absolute;
 	border: 2px solid #777;
 }
-
-/*.right-sidebar {
-	position: absolute;
-	top :0;
-	right: 0;
-	width: 250px;
-	height: 100%;
-	background-color: #fbfbf9;
-	border-left: 1px solid #ddd;
-	display: block;
-}
-
-.menu {
-    display: block;
-	position: relative;
-	width: 220px;
-	height: 210px;
-	margin-top: 25px;
-	margin-left: 25px;
-	background-color: #ededed;
-
-
-.left-sidebar {
-	position: fixed;
-	top: 0;
-	left: 0;
-	width: 245px;
-	height: 100%;
-	background-color: white;
-}*/
 
 #slaves {
     height: 40%;

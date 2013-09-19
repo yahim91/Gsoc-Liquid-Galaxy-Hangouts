@@ -413,6 +413,8 @@
         document.querySelector(".user-room-input").hidden = true;
         document.querySelector(".message-video").hidden = false;
         getLocalUserMedia({audio:true, video:true, data:true});
+        $('.left-sidebar').css('display', 'block');
+        $('.right-sidebar').css('display', 'block');
     }
     
     function sendChatMessage(e) {
