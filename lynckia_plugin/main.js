@@ -76,7 +76,14 @@
                     selectedVideo.style.top = '';
                     selectedVideo.style.height = '';
                     selectedVideo.style.width = '';
-                    $('.central-icons').css('left', 0).css('top', 25);
+                    if (selectedVideo.orientation == 'portrait') {
+                        selectedVideo.style.webkitTransform += 'scale(0.8)';
+                        $('.selectedVideo').css('top', -$('.selectedVideo').position()['top'] + 25);
+                        $('.central-icons').css('left', 0).css('top', 25);
+                    } else {
+                        $('.selectedVideo').css('top', '');
+                        $('.central-icons').css('left', 0).css('top', 25);
+                    }
                 }
             }
         }
@@ -287,6 +294,7 @@
                 if (selectedVideo.orientation === 'portrait') {
                     selectedVideo.style.width = screen.height;
                     selectedVideo.style.height = screen.width;
+                    selectedVideo.style.top =  -(screen.width - (screen.width * 9 / 16))/2;
                     selectedVideo.style.webkitTransform = selectedVideo.style.webkitTransform.split(' ')[0];
                 } else {
                     selectedVideo.style.width = screen.width;
