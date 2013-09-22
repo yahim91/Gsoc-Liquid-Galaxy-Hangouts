@@ -9,13 +9,23 @@ html, body {
         height: 452px;
         width: 800px;
         display: block;
-        top: 25px;
-        right: 0px;
-        left: 0px;
         margin: auto;
         border: 2px solid #777;
         z-index: 13;
         background-color: black;
+    }
+
+    .video-container:hover .fullscreen-button {
+        display: block;
+    }
+
+    .video-container {
+        width: 802;
+        height: 454;
+        margin: auto;
+        margin-top: 25;
+        z-index: 14;
+        position: relative;
     }
 
     .app-title {
@@ -289,9 +299,24 @@ html, body {
         margin: auto;
         right: 0;
         left: 0;
-        top: 25;
         width: 802px;
         height: 600px;
+    }
+
+    .fullscreen-button {
+        background: url('assets/fullscreen-btn.png');
+        display: none;
+        top: 0;
+        right: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 26;
+        width: 64;
+        height: 64;
+        background-repeat: no-repeat;
+        margin: auto;
+        position: absolute;
+        opacity: 0.5;
     }
 
     .homepage-image {
