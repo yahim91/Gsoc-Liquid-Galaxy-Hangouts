@@ -348,6 +348,27 @@ html, body {
         -webkit-transform: rotate(-90deg);
         -webkit-transform-origin: center;
     }
+
+    .video-container {
+        width: 64;
+        height: 64;
+    }
+    
+    .fullscreen-button {
+        background: url('assets/fullscreen-btn.png');
+        display: none;
+        top: 0;
+        right: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 26;
+        width: 64;
+        height: 64;
+        background-repeat: no-repeat;
+        margin: auto;
+        position: absolute;
+        opacity: 0.5;
+    }
     
     .app-title {
         margin-left: -50%;
